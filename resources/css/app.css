@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* Leaflet, from node_modules: no stylesheet is fetched from a CDN. */
+@import 'leaflet/dist/leaflet.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -1312,5 +1314,42 @@ h1 { font-weight: 800; }
 
 .ig-embed-scroll:focus-visible {
     outline: 2px solid var(--color-teal-600, #0f766e);
+    outline-offset: 2px;
+}
+
+/* The complaint map's own marks. Leaflet draws the tiles; these are ours. */
+.complaint-pin span {
+    display: grid;
+    place-items: center;
+    border-radius: 9999px;
+    background: var(--pin);
+    color: #fff;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--pin) 28%, transparent), 0 2px 8px rgb(0 0 0 / 0.35);
+}
+
+.complaint-popup strong { display: block; font-size: 0.9375rem; }
+.complaint-popup p { margin: 0.25rem 0 0.5rem; color: #475569; }
+.complaint-popup ol { margin: 0; padding: 0; list-style: none; max-height: 12rem; overflow-y: auto; }
+
+.complaint-popup li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0 0.5rem;
+    padding: 0.375rem 0;
+    border-top: 1px solid #e2e8f0;
+    font-size: 0.8125rem;
+}
+
+.complaint-popup li a { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }
+.complaint-popup li span { color: #475569; }
+.complaint-popup li em { grid-column: 1; font-style: normal; color: #64748b; }
+.complaint-popup li time { grid-column: 2; color: #94a3b8; }
+
+/* Leaflet paints its own focus ring away; a keyboard user needs it back. */
+.leaflet-container a:focus-visible,
+.leaflet-marker-icon:focus-visible {
+    outline: 3px solid #2563eb;
     outline-offset: 2px;
 }

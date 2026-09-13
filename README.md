@@ -248,6 +248,49 @@ angka atau gambar yang sudah ada (basi lebih baik daripada terhapus), dan angka
 yang tidak dilaporkan platform **tidak pernah** ditulis sebagai 0 — ikonnya tampil
 tanpa angka, dan itu lebih jujur.
 
+### Pertanyaan chatbot menjadi FAQ
+
+**`/admin/bot/pertanyaan`** menghitung apa yang orang tanyakan lewat WhatsApp
+dan Telegram. Pertanyaan yang ditanyakan sekali adalah percakapan; pertanyaan
+yang sama ditanyakan sebelas kali adalah lubang di FAQ — dan sebelas kali itu
+chatbot mengarang jawabannya sendiri.
+
+Sumbernya dibaca dari alur, bukan ditulis di kode: node bertipe `ai`, dan node
+`input` yang menyimpan jawabannya sebagai `question`. Node yang menyimpan
+`description` adalah pengaduan, dan tidak pernah ikut — laporan warga soal
+jalan berlubang tidak boleh berakhir di FAQ publik.
+
+Penulisan yang berbeda digabung jadi satu topik: huruf kecil, tanda baca
+dibuang, kata pengisi (`kak`, `mohon`, `ya`) dihapus, sisanya diurutkan — jadi
+"berapa lama izin IMB" dan "izin IMB berapa lama ya kak" adalah satu
+pertanyaan. Penulisan yang digabung bisa dibuka di layarnya, karena
+pengelompokan itu penilaian yang berhak diperiksa editor.
+
+"Jadikan FAQ" membuat entri **belum terbit dengan jawaban kosong**: hanya orang
+yang boleh menulis jawabannya. Setelah diaktifkan, entri itu terbit di situs
+**dan** menjadi sumber jawaban chatbot — node AI membaca FAQ sebagai salah satu
+sumbernya.
+
+### Peta pengaduan
+
+**`/admin/complaints-peta`** menjawab pertanyaan yang tidak dijawab daftar
+pengaduan: di mana hal yang sama dilaporkan berulang kali.
+
+Pengaduan dikelompokkan menurut jarak di lapangan, bukan menurut teks
+alamatnya — dua orang yang melaporkan lubang yang sama menulis dua alamat
+berbeda, dan salah satunya biasanya tidak menulis apa-apa. Pengelompokannya
+*single-link*: sebuah laporan bergabung bila berjarak kurang dari radius dari
+laporan mana pun di kelompok itu, sehingga satu ruas jalan rusak keluar sebagai
+satu temuan, bukan empat. Radiusnya bisa diatur 100 m – 1 km di layarnya.
+
+Petanya Leaflet — bisa digeser dan di-zoom — tetapi **tidak ada satu pun
+permintaan dari peramban ke penyedia peta**. Leaflet di-bundle dari
+`node_modules`, bukan dari CDN, dan setiap petak peta diminta ke
+`/admin/peta/petak/{z}/{x}/{y}`: server ini yang mengambilnya dari
+OpenStreetMap sekali, menyimpannya di disk, lalu melayaninya. OpenStreetMap
+melihat satu server meminta petak sebuah wilayah, bukan alamat tiap petugas
+berpasangan dengan koordinat aduan yang sedang mereka buka.
+
 ### Memindahkan situs ke mesin lain
 
 Isi awal situs — menu, warna, hak akses, alur chatbot, bank ikon, susunan

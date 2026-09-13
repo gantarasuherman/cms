@@ -7,7 +7,9 @@ use App\Http\Controllers\Admin\BotChannelController;
 use App\Http\Controllers\Admin\BotConversationController;
 use App\Http\Controllers\Admin\BotDataSourceController;
 use App\Http\Controllers\Admin\BotFlowController;
+use App\Http\Controllers\Admin\BotQuestionController;
 use App\Http\Controllers\Admin\ComplaintController;
+use App\Http\Controllers\Admin\MapTileController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -188,6 +190,18 @@ Route::middleware(['auth', 'active'])->group(function () use ($categoryRoutes) {
     // photographs of somebody's street, sent privately.
     Route::get('complaints/attachment/{attachment}', [ComplaintController::class, 'attachment'])->name('complaints.attachment');
     Route::get('complaints', [ComplaintController::class, 'index'])->name('complaints.index');
+    Route::get('complaints-peta', [ComplaintController::class, 'map'])->name('complaints.map');
+
+    // Questions people keep asking the bot, and turning one into an FAQ.
+    Route::get('bot/pertanyaan', [BotQuestionController::class, 'index'])->name('bot.questions.index');
+    Route::post('bot/pertanyaan/jadikan-faq', [BotQuestionController::class, 'promote'])->name('bot.questions.promote');
+    Route::post('bot/pertanyaan/singkirkan', [BotQuestionController::class, 'ignore'])->name('bot.questions.ignore');
+    Route::delete('bot/pertanyaan/{topic}', [BotQuestionController::class, 'restore'])->name('bot.questions.restore');
+    // Tiles pass through this server so an operator's browser never calls a
+    // map provider. Constrained to numbers: these become a URL and a path.
+    Route::get('peta/petak/{z}/{x}/{y}', MapTileController::class)
+        ->whereNumber(['z', 'x', 'y'])
+        ->name('map.tile');
     Route::get('complaints/{complaint}', [ComplaintController::class, 'show'])->name('complaints.show');
     Route::put('complaints/{complaint}', [ComplaintController::class, 'update'])->name('complaints.update');
     Route::post('complaints/{complaint}/reply', [ComplaintController::class, 'reply'])->name('complaints.reply');

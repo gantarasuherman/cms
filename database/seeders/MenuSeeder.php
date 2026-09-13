@@ -81,11 +81,13 @@ class MenuSeeder extends Seeder
 
             ['slug' => 'chatbot', 'title' => 'Chatbot', 'icon' => 'workflow', 'children' => [
                 ['slug' => 'complaints', 'title' => 'Pengaduan', 'icon' => 'clipboard-list', 'route' => 'admin.complaints.index', 'permission' => 'complaint.view'],
+                ['slug' => 'complaints-map', 'title' => 'Peta Pengaduan', 'icon' => 'map-pin', 'route' => 'admin.complaints.map', 'permission' => 'complaint.view'],
                 ['slug' => 'bot-channels', 'title' => 'Pengaturan Chatbot', 'icon' => 'settings', 'route' => 'admin.bot.channels.index', 'permission' => 'chatbot.view'],
                 ['slug' => 'bot-ai', 'title' => 'Bantuan AI', 'icon' => 'sparkles', 'route' => 'admin.bot.ai.edit', 'permission' => 'chatbot.view'],
                 ['slug' => 'bot-flows', 'title' => 'Alur Percakapan', 'icon' => 'workflow', 'route' => 'admin.bot.flows.index', 'permission' => 'chatbot.view'],
                 ['slug' => 'bot-data-sources', 'title' => 'Sumber Data', 'icon' => 'database', 'route' => 'admin.bot.data-sources.index', 'permission' => 'chatbot.view'],
                 ['slug' => 'bot-conversations', 'title' => 'Riwayat Percakapan', 'icon' => 'send', 'route' => 'admin.bot.conversations.index', 'permission' => 'chatbot.view'],
+                ['slug' => 'bot-questions', 'title' => 'Pertanyaan Sering Muncul', 'icon' => 'circle-help', 'route' => 'admin.bot.questions.index', 'permission' => 'faq.view'],
             ]],
 
             ['slug' => 'website', 'title' => 'Website', 'icon' => 'globe', 'children' => [

@@ -8,6 +8,7 @@ use App\Models\ComplaintAttachment;
 use App\Models\ComplaintCategory;
 use App\Services\Audit\AuditLogger;
 use App\Services\Bot\Actions\ReporterReplier;
+use App\Services\Complaints\LocationClusters;
 use App\Services\Media\MediaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -39,6 +40,56 @@ class ComplaintController extends Controller
                 ->selectRaw('status, COUNT(*) as total')
                 ->groupBy('status')
                 ->pluck('total', 'status'),
+        ]);
+    }
+
+    /**
+     * Where the trouble is.
+     *
+     * A list of complaints answers "what came in"; this answers "where is the
+     * same thing being reported over and over", which is the question that
+     * decides where a crew goes on Monday.
+     */
+    public function map(Request $request, LocationClusters $clusters): View
+    {
+        $this->authorize('viewAny', Complaint::class);
+
+        $radius = (int) $request->integer('radius', LocationClusters::DEFAULT_RADIUS);
+        $radius = max(50, min(2000, $radius));
+
+        $complaints = Complaint::query()
+            ->with('category')
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
+            ->when($request->filled('kategori'), fn ($q) => $q->where('complaint_category_id', $request->integer('kategori')))
+            ->get();
+
+        $found = $clusters->build($complaints, $radius);
+
+        return view('admin.complaints.map', [
+            'clusters' => $found,
+            // Handed to the map as data rather than drawn server-side: the
+            // clustering is the analysis, and the browser only renders it.
+            'markers' => $found->map(fn ($cluster) => [
+                'lat' => $cluster->centre()[0],
+                'lng' => $cluster->centre()[1],
+                'count' => $cluster->count(),
+                'label' => $cluster->label(),
+                'summary' => $cluster->summary(),
+                'complaints' => $cluster->complaints->sortByDesc('created_at')->take(20)->map(fn ($c) => [
+                    'ticket' => $c->ticket,
+                    'category' => $c->category?->name ?: 'Tanpa kategori',
+                    'status' => $c->statusLabel(),
+                    'date' => $c->created_at->translatedFormat('d M Y'),
+                    'url' => route('admin.complaints.show', $c),
+                ])->values(),
+            ])->values(),
+            'radius' => $radius,
+            'located' => $complaints->count(),
+            'total' => Complaint::count(),
+            'categories' => ComplaintCategory::active()->get(),
+            'statuses' => Complaint::STATUSES,
         ]);
     }
 

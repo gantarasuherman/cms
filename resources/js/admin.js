@@ -492,6 +492,7 @@ function initDismiss() {
 }
 
 import { initFlowEditor } from './flow-editor';
+import { initComplaintMaps } from './complaint-map';
 
 document.addEventListener('DOMContentLoaded', () => {
     initDataTables();
@@ -509,6 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initAiSettings();
     initTranscript();
     initLightbox();
+    initComplaintMaps();
     initDismiss();
 
     // After the groups are wired, so it can correct what they set up.
