@@ -1242,3 +1242,48 @@ h1 { font-weight: 800; }
 @media (prefers-reduced-motion: reduce) {
     .ig-track { scroll-behavior: auto; }
 }
+
+/* Instagram's own embed, held to the height of the cards beside it.
+ *
+ * The iframe sizes itself to the whole post, caption and all, so one long
+ * caption made the embed twice the height of its neighbours and left a hole in
+ * the grid row. Capping with `overflow-y` rather than `hidden` keeps the rest
+ * of the post reachable; clipping it would hide text with nothing to say so.
+ */
+.ig-embed {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+}
+
+.ig-embed-scroll {
+    max-height: var(--ig-embed-max, 520px);
+    overflow-y: auto;
+    /* A scroll that reaches the end must stop there rather than start moving
+       the page underneath. */
+    overscroll-behavior: contain;
+}
+
+/* Says there is more below. Without it the cap reads as a broken card rather
+   than a scrollable one, because the platform's overlay scrollbars stay
+   invisible until something is already moving. */
+.ig-embed::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 48px;
+    background: linear-gradient(to bottom, rgb(255 255 255 / 0), rgb(255 255 255 / 0.95));
+    pointer-events: none;
+}
+
+/* embed.js writes its own margins inline; they would sit inside the cap and
+   make the visible height inconsistent with the cards. */
+.ig-embed .instagram-media {
+    margin: 0 !important;
+    min-width: 0 !important;
+}
+
+.ig-embed-scroll:focus-visible {
+    outline: 2px solid var(--color-teal-600, #0f766e);
+    outline-offset: 2px;
+}
