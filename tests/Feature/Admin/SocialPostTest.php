@@ -8,6 +8,7 @@ use App\Models\User;
 use Database\Seeders\HomepageSectionSeeder;
 use Database\Seeders\MenuSeeder;
 use Database\Seeders\RolePermissionSeeder;
+use App\Services\Settings\SettingService;
 use Database\Seeders\SettingSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -31,6 +32,16 @@ class SocialPostTest extends TestCase
 
         $this->admin = User::factory()->create();
         $this->admin->assignRole('Super Admin');
+
+        // These tests are about the card this site renders itself. Instagram's
+        // own embed ships on by default and replaces it, so it is switched off
+        // here; the two tests that are about the embed turn it back on.
+        $this->embed(false);
+    }
+
+    private function embed(bool $on): void
+    {
+        app(SettingService::class)->put('appearance', ['instagram_embed' => $on ? '1' : '0'], ['instagram_embed' => 'boolean']);
     }
 
     private function socialPost(array $attributes = []): SocialPost
@@ -380,10 +391,61 @@ class SocialPostTest extends TestCase
 
         $content = $this->get(route('public.home'))->assertOk()->getContent();
 
-        // An official embed would report every visitor to the platform before
-        // they had done anything. Pictures are served from this site's disk.
+        // With the embed off, nothing on the page reaches a platform: the
+        // pictures are served from this site's own disk and the only thing
+        // pointing at instagram.com is a link somebody has to click.
         foreach (['instagram.com/embed', 'platform.instagram.com', 'connect.facebook.net', 'platform.twitter.com', '<iframe'] as $needle) {
             $this->assertStringNotContainsString($needle, $content);
         }
+    }
+
+    /* -------------------------------------------------------------- embed */
+
+    public function test_the_official_embed_replaces_the_card_when_it_is_switched_on(): void
+    {
+        $this->embed(true);
+        $this->socialPost(['permalink' => 'https://www.instagram.com/p/DdLkhm_k23y/?img_index=1']);
+
+        $content = $this->get(route('public.home'))->assertOk()->getContent();
+
+        // The shortcode alone: `?img_index=` and whatever the share sheet
+        // appended are not part of what Instagram is asked to render.
+        $this->assertStringContainsString('data-instgrm-permalink="https://www.instagram.com/p/DdLkhm_k23y/"', $content);
+        $this->assertStringContainsString('https://www.instagram.com/embed.js', $content);
+
+        // The site's own card steps aside rather than rendering underneath.
+        $this->assertStringNotContainsString('article class="ig-post"', $content);
+
+        // And the script is asked for once, however many posts there are.
+        $this->assertSame(1, substr_count($content, 'instagram.com/embed.js'));
+    }
+
+    public function test_only_instagram_is_embedded_and_the_link_still_works_without_script(): void
+    {
+        $this->embed(true);
+        $this->socialPost(['permalink' => 'https://www.instagram.com/p/DdLkhm_k23y/']);
+        $this->socialPost(['platform' => 'facebook', 'permalink' => 'https://www.facebook.com/dinas/posts/1']);
+
+        $content = $this->get(route('public.home'))->assertOk()->getContent();
+
+        // Facebook has no embed here, so it keeps the site's own card.
+        $this->assertStringContainsString('ig-post', $content);
+
+        // The blockquote is the fallback, not a placeholder: with the script
+        // blocked or JavaScript off, a readable link is what remains.
+        $this->assertStringContainsString('Lihat unggahan', $content);
+    }
+
+    public function test_a_post_the_embed_cannot_address_falls_back_to_the_card(): void
+    {
+        $this->embed(true);
+
+        // A profile link, not a post: Instagram's embed has nothing to render.
+        $this->socialPost(['permalink' => 'https://www.instagram.com/dinaspupr/']);
+
+        $content = $this->get(route('public.home'))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('data-instgrm-permalink', $content);
+        $this->assertStringContainsString('ig-post', $content);
     }
 }

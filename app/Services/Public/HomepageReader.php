@@ -9,6 +9,7 @@ use App\Models\News;
 use App\Models\Service;
 use App\Models\SocialPost;
 use App\Services\Cache\PublicCache;
+use App\Services\Settings\SettingService;
 use Illuminate\Support\Collection;
 
 /**
@@ -26,6 +27,7 @@ class HomepageReader
         private readonly DocumentReader $documents,
         private readonly FaqReader $faqs,
         private readonly PublicCache $cache,
+        private readonly SettingService $settings,
     ) {
     }
 
@@ -72,12 +74,17 @@ class HomepageReader
     /** @return Collection<int, SocialPost> */
     private function socialPosts(int $limit): Collection
     {
+        // Whether Instagram renders its own posts changes which posts can be
+        // shown at all, so it is part of the cache key rather than something
+        // a stale entry could contradict.
+        $embedded = (bool) ($this->settings->group('appearance')['instagram_embed'] ?? true);
+
         return $this->cache->remember(
             PublicCache::SOCIAL_POSTS,
-            'live.'.$limit,
+            'live.'.$limit.($embedded ? '.embed' : ''),
             // Slides eager-loaded: a carousel per card would otherwise be one
             // query per card on every homepage render.
-            fn () => SocialPost::live()->with('media')->limit($limit)->get(),
+            fn () => SocialPost::live($embedded)->with('media')->limit($limit)->get(),
         );
     }
 

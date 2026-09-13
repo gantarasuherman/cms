@@ -72,14 +72,21 @@ class SocialPost extends Model
         };
     }
 
-    public function scopeLive(Builder $query): Builder
+    /**
+     * @param  bool  $embedded  Instagram renders its own posts on this page.
+     *                          Those bring their media with them, so such a
+     *                          post is showable before anything has been
+     *                          downloaded — which is the only case where a
+     *                          picture of our own is not required.
+     */
+    public function scopeLive(Builder $query, bool $embedded = false): Builder
     {
         // A picture is what the grid is made of, so a post still waiting for
-        // one is held back rather than shown as an empty tile. Instagram is
-        // the exception: its own embed brings the media with it, so a post
-        // there is showable before anything has been downloaded.
+        // one is held back rather than shown as an empty tile.
         return $query->where('is_active', true)
-            ->where(fn (Builder $q) => $q->whereNotNull('image')->orWhere('platform', 'instagram'))
+            ->where(fn (Builder $q) => $embedded
+                ? $q->whereNotNull('image')->orWhere('platform', 'instagram')
+                : $q->whereNotNull('image'))
             ->orderBy('sort_order')
             ->orderByDesc('posted_at')
             ->orderByDesc('id');

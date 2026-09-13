@@ -559,6 +559,10 @@ class SocialSyncTest extends TestCase
         $this->socialPost(['image' => null, 'caption' => 'Menunggu gambar']);
 
         $this->assertSame(0, SocialPost::live()->count());
+
+        // Unless Instagram is rendering the post itself, in which case the
+        // media arrives with the embed and none of ours is needed.
+        $this->assertSame(1, SocialPost::live(embedded: true)->count());
     }
 
     /* -------------------------------------------------------------- admin */

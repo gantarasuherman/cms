@@ -248,6 +248,33 @@ angka atau gambar yang sudah ada (basi lebih baik daripada terhapus), dan angka
 yang tidak dilaporkan platform **tidak pernah** ditulis sebagai 0 — ikonnya tampil
 tanpa angka, dan itu lebih jujur.
 
+### Unggahan Instagram
+
+Tempelkan tautan unggahan di **`/admin/social-posts`** — sisanya terisi sendiri.
+Ada dua cara menampilkannya, dipilih di **`/admin/settings/appearance`**:
+
+| Pilihan | Tampilan | Biayanya |
+| --- | --- | --- |
+| Sematan resmi (bawaan) | Persis unggahan aslinya: carousel, video, suka & komentar selalu terbaru | Memuat `embed.js` dari instagram.com, jadi alamat IP setiap pengunjung beranda terkirim ke Meta |
+| Kartu buatan situs ini | Meniru tata letak Instagram; gambar dilayani dari server sendiri | Angka mengikuti sinkronisasi terakhir, bukan detik ini |
+
+Pengambilan datanya memakai jalur resmi saja, tidak pernah scraping:
+
+- **Graph API** (`INSTAGRAM_USER_ID` + `INSTAGRAM_ACCESS_TOKEN`) untuk unggahan
+  akun sendiri. Satu-satunya jalur yang melaporkan `like_count`,
+  `comments_count`, dan seluruh slide carousel.
+- **oEmbed resmi** (`INSTAGRAM_OEMBED_TOKEN`, berbentuk `{app-id}|{client-token}`)
+  sebagai cadangan untuk unggahan akun lain. Hanya memberi nama akun dan satu
+  gambar pratinjau — Meta menghapus angka suka dari oEmbed sejak Oktober 2020,
+  jadi angka untuk unggahan akun lain diisi tangan atau dikosongkan.
+- `INSTAGRAM_READ_COMMENTS=true` menambah pratinjau komentar teratas. Mati
+  secara bawaan: perlu izin `instagram_manage_comments` dan satu permintaan
+  tambahan per unggahan setiap sinkronisasi.
+
+Gambar carousel disimpan satu baris per slide di `social_post_media`, diunduh ke
+disk sendiri, dan slide yang dihapus di sumbernya ikut terhapus di sini. Video
+disimpan sebagai bingkai pratinjaunya saja; berkasnya tetap di platform.
+
 ### Logo dan favicon
 
 Ketiganya — **Logo**, **Favicon**, dan **Logo Panel Admin** — diunggah di
