@@ -427,14 +427,28 @@ html[data-reduce-motion] *::after {
 
 /* ---------------------------------------------------------------------------
    News section — magazine treatment
-   Modelled on the AzNews layout. Its accent (#fc3f00) is kept for badges and
-   display-size type, where 3:1 is the bar; small text uses a darker step of the
-   same hue (#db3700, 4.61:1) because the original fails WCAG AA at body size.
+
+   Its accent follows the primary colour chosen in /admin/settings/appearance;
+   the literals below are only the fallback for a page rendered before the
+   theme block exists.
+
+   Two steps rather than one, because one colour cannot do both jobs: the full
+   strength is for fills and display-size type, where 3:1 is the bar, and the
+   darker `-text` step is for small text, where 4.5:1 is. The original accent
+   (#fc3f00, 3.30:1) fails AA at body size; its darker step (#db3700, 4.61:1)
+   passes. App\Support\Color derives the same pair for whatever colour an
+   administrator picks.
 --------------------------------------------------------------------------- */
 
 .news-theme {
-    --news-accent: #fc3f00;
-    --news-accent-text: #db3700;
+    /* The news section's accent is the site's primary colour, not a second
+       identity: an administrator who changes the brand expects the news pages
+       to follow. The literals stay as the fallback for a page rendered before
+       the theme block exists. `-text` is the darkened step App\Support\Color
+       measured against white, so the accent stays legible as lettering even
+       when the chosen colour is too light to read at full strength. */
+    --news-accent: var(--brand-primary, #fc3f00);
+    --news-accent-text: var(--brand-primary-ink, #db3700);
     --news-ink: #1f2937;
     --news-muted: #6b7280;
     --news-surface: #f7f7fd;
@@ -492,11 +506,13 @@ html[data-reduce-motion] *::after {
 .news-theme .news-chip-3 { background: #e1fcff; }
 .news-theme .news-chip-4 { background: #fff9c6; }
 
-/* Overlay chip sits on photography, so it takes the solid accent and white ink
-   rather than a pastel that would disappear against a bright image. */
+/* Overlay chip sits on photography, so it takes the solid accent rather than a
+   pastel that would disappear against a bright image. Its lettering follows
+   the measured contrast of the chosen colour, not a fixed white: a pale
+   primary would erase white text entirely. */
 .news-theme .news-chip-solid {
     background: var(--news-accent);
-    color: #fff;
+    color: var(--brand-on-primary, #fff);
 }
 
 .news-theme .news-headline-link {
@@ -690,12 +706,23 @@ h1 { font-weight: 800; }
    rule came to be stuck on sarab's original red after the palette changed. */
 .sarab .sarab-btn-primary:hover { background: color-mix(in oklab, var(--sarab-primary) 84%, black); }
 
-.sarab .sarab-btn-outline {
-    border: 2px solid var(--sarab-dark);
-    color: var(--sarab-dark);
+/* The accent fill. Its lettering is whatever App\Support\Color measured as
+   readable on the chosen colour — dark on a pale orange, white on a deep
+   blue — rather than a fixed white that a light pick would erase. */
+.sarab .sarab-btn-secondary {
+    background: var(--sarab-secondary);
+    color: var(--sarab-on-secondary);
+    font-weight: 700;
 }
 
-.sarab .sarab-btn-outline:hover { background: var(--sarab-dark); color: #fff; }
+.sarab .sarab-btn-secondary:hover { background: color-mix(in oklab, var(--sarab-secondary) 84%, black); }
+
+.sarab .sarab-btn-outline {
+    border: 2px solid var(--sarab-primary);
+    color: var(--sarab-primary);
+}
+
+.sarab .sarab-btn-outline:hover { background: var(--sarab-primary); color: var(--sarab-on-primary); }
 
 @media (prefers-reduced-motion: reduce) {
     .sarab .sarab-card { transition: none; }

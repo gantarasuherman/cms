@@ -12,7 +12,7 @@
                  the way the source theme opens its trending block. --}}
             <article class="lg:col-span-3">
                 <a href="{{ route('public.news.show', $main->slug) }}"
-                   class="group relative block overflow-hidden rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#db3700]">
+                   class="group relative block overflow-hidden rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--news-accent-text)]">
                     @if ($main->featured_image)
                         <img src="{{ Storage::disk('public')->url($main->featured_image) }}"
                              alt="" fetchpriority="high"
@@ -70,7 +70,7 @@
 
                                     <h3 class="mt-1 text-sm font-bold leading-snug">
                                         <a href="{{ route('public.news.show', $item->slug) }}"
-                                           class="news-headline-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#db3700]">
+                                           class="news-headline-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--news-accent-text)]">
                                             {{ $item->title }}
                                         </a>
                                     </h3>

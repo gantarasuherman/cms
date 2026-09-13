@@ -7,6 +7,6 @@
 @endphp
 
 <a href="{{ route('public.news.index', ['kategori' => $category->slug]) }}"
-   class="news-chip {{ $tone }} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#db3700]">
+   class="news-chip {{ $tone }} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--news-accent-text)]">
     {{ $category->name }}
 </a>

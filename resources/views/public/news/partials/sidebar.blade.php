@@ -8,9 +8,9 @@
             @endif
             <label for="sidebar-q" class="sr-only">Kata kunci berita</label>
             <input type="search" id="sidebar-q" name="q" value="{{ $search }}" placeholder="Ketik kata kunci…"
-                   class="min-w-0 flex-1 rounded border border-slate-300 px-3 py-2.5 text-sm focus:outline-2 focus:outline-offset-0 focus:outline-[#db3700]">
+                   class="min-w-0 flex-1 rounded border border-slate-300 px-3 py-2.5 text-sm focus:outline-2 focus:outline-offset-0 focus:outline-[var(--news-accent-text)]">
             <button type="submit"
-                    class="shrink-0 rounded bg-[#fc3f00] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#db3700] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#db3700]">
+                    class="shrink-0 rounded bg-[var(--news-accent)] px-4 py-2.5 text-sm font-bold text-[var(--brand-on-primary,#fff)] hover:bg-[var(--news-accent-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--news-accent-text)]">
                 Cari
             </button>
         </form>
@@ -27,7 +27,7 @@
                         <div class="min-w-0 flex-1">
                             <h3 class="text-sm font-bold leading-snug">
                                 <a href="{{ route('public.news.show', $item->slug) }}"
-                                   class="news-headline-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#db3700]">
+                                   class="news-headline-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--news-accent-text)]">
                                     {{ $item->title }}
                                 </a>
                             </h3>
@@ -48,7 +48,7 @@
                     <li>
                         <a href="{{ route('public.news.index', ['kategori' => $category->slug]) }}"
                            @if ($activeCategory === $category->slug) aria-current="page" @endif
-                           class="flex items-center justify-between gap-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#db3700] {{ $activeCategory === $category->slug ? 'font-bold text-[#db3700]' : 'text-slate-700 hover:text-[#db3700]' }}">
+                           class="flex items-center justify-between gap-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--news-accent-text)] {{ $activeCategory === $category->slug ? 'font-bold text-[var(--news-accent-text)]' : 'text-slate-700 hover:text-[var(--news-accent-text)]' }}">
                             <span class="min-w-0 truncate">{{ $category->name }}</span>
                             <span class="shrink-0 rounded bg-slate-100 px-2 py-0.5 text-xs tabular-nums text-slate-600">
                                 {{ $category->news_count }}

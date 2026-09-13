@@ -214,6 +214,74 @@ class AppearanceSettingsTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/(text|bg|border)-slate-\d/', $footer);
     }
 
+    public function test_public_buttons_carry_no_colour_of_their_own(): void
+    {
+        // Every *control* on a public page takes its fill from the theme
+        // variables. A literal here would survive every colour change and
+        // leave one button stuck on the palette it was written against —
+        // which is exactly how the old news accent outlived two rebrands.
+        //
+        // Scoped to controls on purpose: the hero's dark backdrop behind
+        // photography is a literal and should stay one, because it is not a
+        // brand surface but the ground a white headline has to read against.
+        $views = [
+            'resources/views/components/public/hero-slider.blade.php',
+            'resources/views/public/news/index.blade.php',
+            'resources/views/public/news/partials/sidebar.blade.php',
+        ];
+
+        foreach ($views as $view) {
+            foreach (file(base_path($view)) as $number => $line) {
+                if (! str_contains($line, '<a ') && ! str_contains($line, '<button') && ! str_contains($line, 'class=')) {
+                    continue;
+                }
+
+                if (! preg_match('/(bg|border|text)-\[#[0-9A-Fa-f]{3,8}\]/', $line, $found)) {
+                    continue;
+                }
+
+                // A control is a line that also names a control-ish shape.
+                if (! preg_match('/rounded|px-|py-/', $line)) {
+                    continue;
+                }
+
+                $this->fail($view.':'.($number + 1).' memakai warna tetap '.$found[0].', bukan warna dari panel admin.');
+            }
+        }
+
+        $this->assertTrue(true);
+    }
+
+    public function test_a_button_follows_the_colour_an_administrator_picks(): void
+    {
+        $this->save(['primary_color' => '#7C1D6F', 'secondary_color' => '#16A34A'])->assertRedirect();
+
+        $content = str_replace(' ', '', $this->get(route('public.home'))->assertOk()->getContent());
+
+        // The variables every button class resolves against.
+        $this->assertStringContainsString('--brand-primary:#7c1d6f', $content);
+        $this->assertStringContainsString('--brand-secondary:#16a34a', $content);
+        $this->assertStringContainsString('--brand-on-primary:', $content);
+        $this->assertStringContainsString('--brand-on-secondary:', $content);
+    }
+
+    public function test_a_pale_button_colour_gets_dark_lettering(): void
+    {
+        // White on #FFD166 is 1.44:1 — invisible. The ink is measured, not
+        // assumed, so a pale pick flips it to dark instead of erasing it.
+        $this->save(['primary_color' => '#FFD166', 'secondary_color' => '#FFF3BF'])->assertRedirect();
+
+        $theme = $this->theme()->variables();
+
+        foreach (['--brand-on-primary' => '--brand-primary', '--brand-on-secondary' => '--brand-secondary'] as $ink => $fill) {
+            $this->assertGreaterThanOrEqual(
+                Color::AA,
+                Color::contrast($theme[$ink], $theme[$fill]),
+                $ink.' tidak terbaca di atas '.$fill.'.',
+            );
+        }
+    }
+
     public function test_every_offered_font_is_a_local_or_system_stack(): void
     {
         foreach (ThemeService::FONTS as $key => $font) {

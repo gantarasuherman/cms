@@ -53,7 +53,7 @@
                                      white on #EF8519 is 2.61:1 and fails. The
                                      identity colour is kept exactly; only the
                                      text on it changes. --}}
-                                <span class="inline-block rounded-full bg-[#EF8519] px-3.5 py-1.5 text-xs font-bold uppercase tracking-[0.12em] text-[#0b1b2b]">
+                                <span class="inline-block rounded-full bg-[var(--sarab-secondary)] px-3.5 py-1.5 text-xs font-bold uppercase tracking-[0.12em] text-[var(--sarab-on-secondary)]">
                                     {{ $slide->category }}
                                 </span>
                             @endif
@@ -74,7 +74,7 @@
 
                             @if ($slide->link && $slide->button_text)
                                 <a href="{{ $slide->link }}"
-                                   class="mt-7 inline-flex items-center gap-2 rounded-full bg-[#EF8519] px-6 py-3.5 text-sm font-bold text-[#0b1b2b] transition-colors hover:bg-[#ffa143] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                                   class="mt-7 inline-flex items-center gap-2 rounded-full bg-[var(--sarab-secondary)] px-6 py-3.5 text-sm font-bold text-[var(--sarab-on-secondary)] transition-colors hover:bg-[color-mix(in_oklab,var(--sarab-secondary)_84%,black)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
                                     {{ $slide->button_text }}
                                     <x-icon name="chevron-right" class="h-4 w-4" />
                                 </a>
@@ -91,13 +91,13 @@
                     <div class="flex flex-wrap items-center gap-4">
                         <div class="flex items-center gap-2">
                             <button type="button" data-hero-prev
-                                    class="grid h-11 w-11 place-items-center rounded-full border border-white/35 text-white transition-colors hover:bg-white hover:text-[#02468B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                                    class="grid h-11 w-11 place-items-center rounded-full border border-white/35 text-white transition-colors hover:bg-white hover:text-[var(--sarab-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
                                 <x-icon name="chevron-left" class="h-5 w-5" />
                                 <span class="sr-only">Slide sebelumnya</span>
                             </button>
 
                             <button type="button" data-hero-next
-                                    class="grid h-11 w-11 place-items-center rounded-full border border-white/35 text-white transition-colors hover:bg-white hover:text-[#02468B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                                    class="grid h-11 w-11 place-items-center rounded-full border border-white/35 text-white transition-colors hover:bg-white hover:text-[var(--sarab-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
                                 <x-icon name="chevron-right" class="h-5 w-5" />
                                 <span class="sr-only">Slide berikutnya</span>
                             </button>
@@ -105,7 +105,7 @@
                             {{-- Autoplay must be stoppable by a real control, not
                                  only by hovering (WCAG 2.2.2). --}}
                             <button type="button" data-hero-play aria-pressed="false"
-                                    class="grid h-11 w-11 place-items-center rounded-full border border-white/35 text-white transition-colors hover:bg-white hover:text-[#02468B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                                    class="grid h-11 w-11 place-items-center rounded-full border border-white/35 text-white transition-colors hover:bg-white hover:text-[var(--sarab-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
                                 <span data-hero-icon-pause><x-icon name="pause" class="h-4 w-4" /></span>
                                 <span data-hero-icon-play hidden><x-icon name="play" class="h-4 w-4" /></span>
                                 <span class="sr-only" data-hero-play-label>Hentikan pergantian otomatis</span>
@@ -128,7 +128,7 @@
                                         aria-selected="{{ $loop->first ? 'true' : 'false' }}"
                                         class="group relative h-1.5 min-w-8 flex-1 overflow-hidden rounded-full bg-white/25 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
                                     <span data-hero-progress
-                                          class="absolute inset-y-0 left-0 block w-0 rounded-full bg-[#EF8519]"></span>
+                                          class="absolute inset-y-0 left-0 block w-0 rounded-full bg-[var(--sarab-secondary)]"></span>
                                     <span class="sr-only">Slide {{ $loop->iteration }}</span>
                                 </button>
                             @endforeach

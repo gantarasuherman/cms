@@ -18,9 +18,9 @@
         <article class="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
             <nav aria-label="Remah roti" class="mb-4">
                 <ol class="flex flex-wrap items-center gap-1.5 text-sm text-slate-500">
-                    <li><a href="{{ route('public.home') }}" class="hover:text-[#db3700] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#db3700]">Beranda</a></li>
+                    <li><a href="{{ route('public.home') }}" class="hover:text-[var(--news-accent-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--news-accent-text)]">Beranda</a></li>
                     <li aria-hidden="true" class="text-slate-300">/</li>
-                    <li><a href="{{ route('public.news.index') }}" class="hover:text-[#db3700] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#db3700]">Berita</a></li>
+                    <li><a href="{{ route('public.news.index') }}" class="hover:text-[var(--news-accent-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--news-accent-text)]">Berita</a></li>
                 </ol>
             </nav>
 
@@ -66,7 +66,7 @@
                         ] as [$label, $href, $icon])
                             <li>
                                 <a href="{{ $href }}" target="_blank" rel="noopener noreferrer"
-                                   class="grid h-9 w-9 place-items-center rounded border border-slate-200 text-slate-600 transition hover:border-[#fc3f00] hover:text-[#db3700] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#db3700]">
+                                   class="grid h-9 w-9 place-items-center rounded border border-slate-200 text-slate-600 transition hover:border-[var(--news-accent)] hover:text-[var(--news-accent-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--news-accent-text)]">
                                     <x-icon :name="$icon" class="h-4 w-4" />
                                     <span class="sr-only">Bagikan ke {{ $label }} (tab baru)</span>
                                 </a>
@@ -78,7 +78,7 @@
 
             <div class="py-8">
                 @if ($news->excerpt)
-                    <p class="mb-8 border-l-4 border-[#fc3f00] pl-4 text-lg font-medium leading-relaxed text-slate-700">
+                    <p class="mb-8 border-l-4 border-[var(--news-accent)] pl-4 text-lg font-medium leading-relaxed text-slate-700">
                         {{ $news->excerpt }}
                     </p>
                 @endif
@@ -125,7 +125,7 @@
 
                                         <h3 class="mt-1.5 text-base font-bold leading-snug">
                                             <a href="{{ route('public.news.show', $item->slug) }}"
-                                               class="news-headline-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#db3700]">
+                                               class="news-headline-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--news-accent-text)]">
                                                 {{ $item->title }}
                                             </a>
                                         </h3>

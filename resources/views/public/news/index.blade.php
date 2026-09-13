@@ -7,9 +7,9 @@
                 <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <nav aria-label="Remah roti" class="mb-2">
                         <ol class="flex flex-wrap items-center gap-1.5 text-sm text-slate-500">
-                            <li><a href="{{ route('public.home') }}" class="hover:text-[#db3700] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#db3700]">Beranda</a></li>
+                            <li><a href="{{ route('public.home') }}" class="hover:text-[var(--news-accent-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--news-accent-text)]">Beranda</a></li>
                             <li aria-hidden="true" class="text-slate-300">/</li>
-                            <li><a href="{{ route('public.news.index') }}" class="hover:text-[#db3700] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#db3700]">Berita</a></li>
+                            <li><a href="{{ route('public.news.index') }}" class="hover:text-[var(--news-accent-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--news-accent-text)]">Berita</a></li>
                             @if ($activeCategory || $search)
                                 <li aria-hidden="true" class="text-slate-300">/</li>
                                 <li aria-current="page" class="font-medium text-slate-700">
@@ -45,7 +45,7 @@
                         <li>
                             <a href="{{ route('public.news.index') }}"
                                @if (! $activeCategory) aria-current="page" @endif
-                               class="inline-block whitespace-nowrap rounded px-3.5 py-2 text-sm font-bold uppercase tracking-wide focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#db3700] {{ ! $activeCategory ? 'bg-[#fc3f00] text-white' : 'text-slate-600 hover:bg-slate-100' }}">
+                               class="inline-block whitespace-nowrap rounded px-3.5 py-2 text-sm font-bold uppercase tracking-wide focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--news-accent-text)] {{ ! $activeCategory ? 'bg-[var(--news-accent)] text-[var(--brand-on-primary,#fff)]' : 'text-slate-600 hover:bg-slate-100' }}">
                                 Semua
                             </a>
                         </li>
@@ -54,7 +54,7 @@
                             <li>
                                 <a href="{{ route('public.news.index', ['kategori' => $category->slug]) }}"
                                    @if ($isActive) aria-current="page" @endif
-                                   class="inline-block whitespace-nowrap rounded px-3.5 py-2 text-sm font-bold uppercase tracking-wide focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#db3700] {{ $isActive ? 'bg-[#fc3f00] text-white' : 'text-slate-600 hover:bg-slate-100' }}">
+                                   class="inline-block whitespace-nowrap rounded px-3.5 py-2 text-sm font-bold uppercase tracking-wide focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--news-accent-text)] {{ $isActive ? 'bg-[var(--news-accent)] text-[var(--brand-on-primary,#fff)]' : 'text-slate-600 hover:bg-slate-100' }}">
                                     {{ $category->name }}
                                 </a>
                             </li>
@@ -107,7 +107,7 @@
 
                                             <h3 class="text-lg font-extrabold leading-snug">
                                                 <a href="{{ route('public.news.show', $item->slug) }}"
-                                                   class="news-headline-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#db3700]">
+                                                   class="news-headline-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--news-accent-text)]">
                                                     {{ $item->title }}
                                                 </a>
                                             </h3>
