@@ -1,0 +1,130 @@
+# Nama project Compose dikunci di sini, TIDAK diambil dari nama folder.
+#
+# Di mesin ini ada beberapa project yang sama-sama punya folder bernama
+# "laradock". Tanpa baris ini Compose memberi mereka nama project yang sama,
+# sehingga `up`/`down` dari satu project mencabut container project lain dan
+# volume `laradock_mysql-data` dipakai berbarengan.
+name: cms
+
+services:
+  # Tempat menjalankan perintah pengembangan: artisan, composer, npm.
+  # Bukan tempat melayani permintaan HTTP — itu tugas nginx + php-fpm.
+  workspace:
+    build:
+      context: ./workspace
+      args:
+        PHP_VERSION: ${PHP_VERSION}
+        NODE_VERSION: ${NODE_VERSION}
+    volumes:
+      - ${APPLICATION}:/var/www
+    working_dir: /var/www
+    ports:
+      # Vite dev server. Port-nya sama di dalam dan di luar container supaya
+      # URL aset yang ditulis Vite ke hot file tetap benar dari sisi browser.
+      - "${VITE_HOST_PORT}:${VITE_HOST_PORT}"
+    depends_on:
+      - mysql
+    networks:
+      - cms
+
+  php-fpm:
+    build:
+      context: ./php-fpm
+      args:
+        PHP_VERSION: ${PHP_VERSION}
+    volumes:
+      - ${APPLICATION}:/var/www
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - cms
+
+  nginx:
+    image: nginx:alpine
+    depends_on:
+      - php-fpm
+    volumes:
+      - ${APPLICATION}:/var/www
+      - ./nginx/sites:/etc/nginx/conf.d:ro
+    ports:
+      - "${NGINX_HOST_HTTP_PORT}:80"
+    networks:
+      - cms
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    ports:
+      - "${MYSQL_HOST_PORT}:3306"
+    # Container lain menunggu status sehat ini, bukan sekadar "sudah start":
+    # MySQL menerima koneksi beberapa detik setelah prosesnya hidup.
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - cms
+
+  # Menyimpan cache menu, pengaturan, dan data publik yang di-cache CMS.
+  # Ingin melepasnya? Setel CACHE_STORE=database dan SESSION_DRIVER=database
+  # di .env aplikasi, lalu hapus service ini.
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    ports:
+      - "${REDIS_HOST_PORT}:6379"
+    networks:
+      - cms
+
+  # Pekerja antrean. Dijadikan service tersendiri, bukan `docker exec` ke
+  # workspace, karena proses hasil exec ikut mati setiap kali workspace
+  # dibuat ulang pada `docker compose up -d --build`.
+  queue:
+    build:
+      context: ./workspace
+      args:
+        PHP_VERSION: ${PHP_VERSION}
+        NODE_VERSION: ${NODE_VERSION}
+    volumes:
+      - ${APPLICATION}:/var/www
+    working_dir: /var/www
+    command: php artisan queue:work --tries=3 --timeout=120 --max-time=3600
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - cms
+
+  # Antarmuka basis data. Bukan bagian stack dasar — jalankan saat dibutuhkan:
+  #   docker compose --profile tools up -d
+  phpmyadmin:
+    profiles: ["tools"]
+    image: phpmyadmin:latest
+    depends_on:
+      - mysql
+    environment:
+      PMA_HOST: mysql
+      UPLOAD_LIMIT: 64M
+    ports:
+      - "${PHPMYADMIN_HOST_PORT}:80"
+    networks:
+      - cms
+
+networks:
+  cms:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:

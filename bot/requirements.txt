@@ -1,0 +1,5 @@
+# The polling and outbox loops need nothing at all — they are stdlib, because
+# the parts that must keep running unattended are easier to trust that way.
+# These are only for `python -m app serve`, the production webhook mode.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0

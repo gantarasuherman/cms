@@ -1,0 +1,1244 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+
+/* ---------------------------------------------------------------------------
+   Admin design tokens (shadcn)
+
+   Taken from the shadcn-admin reference: OKLCH values, radius .625rem, a
+   neutral slate ramp with a near-black primary. Declared once here and mapped
+   into Tailwind utilities below, so every admin component reads the same
+   token rather than a literal colour.
+--------------------------------------------------------------------------- */
+
+:root {
+    --radius: 0.625rem;
+
+    --background: oklch(100% 0 0);
+    --foreground: oklch(12.9% 0.042 264.695);
+
+    --card: oklch(100% 0 0);
+    --card-foreground: oklch(12.9% 0.042 264.695);
+
+    --popover: oklch(100% 0 0);
+    --popover-foreground: oklch(12.9% 0.042 264.695);
+
+    --primary: oklch(20.8% 0.042 265.755);
+    --primary-foreground: oklch(98.4% 0.003 247.858);
+
+    --secondary: oklch(96.8% 0.007 247.896);
+    --secondary-foreground: oklch(20.8% 0.042 265.755);
+
+    --muted: oklch(96.8% 0.007 247.896);
+    --muted-foreground: oklch(55.4% 0.046 257.417);
+
+    --accent: oklch(96.8% 0.007 247.896);
+    --accent-foreground: oklch(20.8% 0.042 265.755);
+
+    --destructive: oklch(57.7% 0.245 27.325);
+    --destructive-foreground: oklch(98.4% 0.003 247.858);
+
+    --success: oklch(52.7% 0.154 150.069);
+    --warning: oklch(55.5% 0.113 75.834);
+
+    --border: oklch(92.9% 0.013 255.508);
+    --input: oklch(92.9% 0.013 255.508);
+    --ring: oklch(70.4% 0.04 256.788);
+
+    --sidebar: oklch(98.4% 0.003 247.858);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-border: var(--border);
+
+    /* Chart ink. Both steps were run through the palette validator against the
+       surface they actually render on — light: PASS at L 0.55 on white. */
+    --chart-1: oklch(54.6% 0.245 262.881);
+}
+
+.dark {
+    --background: oklch(12.9% 0.042 264.695);
+    --foreground: oklch(98.4% 0.003 247.858);
+
+    --card: oklch(14% 0.04 259.21);
+    --card-foreground: oklch(98.4% 0.003 247.858);
+
+    --popover: oklch(14% 0.04 259.21);
+    --popover-foreground: oklch(98.4% 0.003 247.858);
+
+    --primary: oklch(92.9% 0.013 255.508);
+    --primary-foreground: oklch(20.8% 0.042 265.755);
+
+    --secondary: oklch(27.9% 0.041 260.031);
+    --secondary-foreground: oklch(98.4% 0.003 247.858);
+
+    --muted: oklch(27.9% 0.041 260.031);
+    --muted-foreground: oklch(70.4% 0.04 256.788);
+
+    --accent: oklch(27.9% 0.041 260.031);
+    --accent-foreground: oklch(98.4% 0.003 247.858);
+
+    --destructive: oklch(70.4% 0.191 22.216);
+    --destructive-foreground: oklch(20.8% 0.042 265.755);
+
+    --success: oklch(72.3% 0.15 149.579);
+    --warning: oklch(79.5% 0.148 86.047);
+
+    --border: oklch(100% 0 0 / 0.1);
+    --input: oklch(100% 0 0 / 0.15);
+    --ring: oklch(55.1% 0.027 264.364);
+
+    --sidebar: oklch(14% 0.04 259.21);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-border: var(--border);
+
+    /* Selected against the dark card, not flipped from the light step: the
+       dark-mode lightness band is 0.48–0.67, so the brighter blue-400 that
+       looked like the obvious choice fails it and glares on a dark ground.
+       blue-500 passes every check here. */
+    --chart-1: oklch(62.3% 0.214 259.815);
+}
+
+/* Map the tokens onto Tailwind utilities: bg-card, text-muted-foreground,
+   border-border, rounded-lg and so on all resolve through these. */
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-chart-1: var(--chart-1);
+
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* ---------------------------------------------------------------------------
+   Collapsible sidebar
+
+   The width lives in one custom property so the rail and the content padding
+   can never drift apart. Collapsing hides labels *visually only* — they keep
+   their place in the accessibility tree, so an icon-only rail is still
+   navigable with a screen reader.
+--------------------------------------------------------------------------- */
+
+.admin-shell {
+    --sidebar-width: 16rem;
+}
+
+/* Only meaningful in the collapsed rail; hidden everywhere else. */
+.sidebar-flyout-title,
+.sidebar-flyout--label {
+    display: none;
+}
+
+.admin-shell[data-sidebar-collapsed='true'] {
+    --sidebar-width: 4rem;
+}
+
+/* Collapsing is offered from md up. It used to start at lg, which meant a
+   laptop at 900px wide had no control at all — the button was hidden and the
+   rules never applied. */
+@media (min-width: 768px) {
+    .admin-sidebar {
+        width: var(--sidebar-width);
+    }
+
+    .admin-content {
+        padding-left: var(--sidebar-width);
+    }
+}
+
+/* Below md the rail is an overlay drawer: always full width, never collapsed. */
+@media (max-width: 767.98px) {
+    .admin-sidebar {
+        width: 16rem;
+    }
+}
+
+/* The square mark stands in for the wide logo only once there is no room for
+   it. Shown at both sizes it is the same picture twice, the second squeezed. */
+.admin-shell:not([data-sidebar-collapsed='true']) .brand-square { display: none; }
+
+@media (max-width: 767px) {
+    .admin-shell .brand-square { display: none; }
+}
+
+@media (min-width: 768px) {
+    .admin-shell[data-sidebar-collapsed='true'] .brand-square { display: grid; }
+
+    .admin-shell[data-sidebar-collapsed='true'] .sidebar-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+        border-width: 0;
+    }
+
+    .admin-shell[data-sidebar-collapsed='true'] .sidebar-group-label,
+    .admin-shell[data-sidebar-collapsed='true'] .sidebar-chevron {
+        display: none;
+    }
+
+    /* Icons centre in the rail once the labels are gone. */
+    .admin-shell[data-sidebar-collapsed='true'] .sidebar-item {
+        justify-content: center;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    /* ---------------------------------------------------------------- flyout
+
+       A 4rem rail has no room to open a group inline, so hovering or focusing
+       an item floats its contents out to the side instead.
+
+       Three things this has to get right:
+         - it opens on focus as well as hover, so it is reachable by keyboard;
+         - the panel sits flush against the rail, with no gap the pointer would
+           fall through on its way over (WCAG 1.4.13 "hoverable");
+         - it hides with Escape, without having to move the pointer or focus
+           (1.4.13 "dismissible") — handled by admin.js.
+    */
+    .admin-shell[data-sidebar-collapsed='true'] .sidebar-node {
+        position: relative;
+    }
+
+    .admin-shell[data-sidebar-collapsed='true'] .sidebar-flyout,
+    .admin-shell[data-sidebar-collapsed='true'] .sidebar-flyout[hidden] {
+        /* The [hidden] attribute is taken off by admin.js while the rail is
+           collapsed, so nothing here has to fight it.
+           It cannot be beaten from CSS: Tailwind's preflight declares
+           [hidden] { display: none !important } inside @layer base, and for
+           !important declarations the layer order is reversed — a layered
+           !important outranks an unlayered one however specific. */
+        display: block;
+
+        /* Fixed, not absolute, and placed by admin.js.
+           The <nav> around the menu scrolls (overflow-y: auto), and a box whose
+           overflow is not visible on one axis clips the other axis too — an
+           absolutely positioned panel at left:100% was being cut off exactly at
+           the rail's edge. A fixed box is not clipped by an ancestor's
+           overflow, so the panel escapes the scroller. */
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 50;
+        min-width: 12rem;
+        margin-top: 0;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--popover);
+        color: var(--popover-foreground);
+        padding: 0.25rem;
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+        /* opacity rather than display/visibility: an element hidden either of
+           those ways cannot receive focus, and then Tab could never reach the
+           children to open the panel in the first place. */
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.12s ease;
+    }
+
+    .admin-shell[data-sidebar-collapsed='true'] .sidebar-node:hover > .sidebar-flyout,
+    .admin-shell[data-sidebar-collapsed='true'] .sidebar-node:focus-within > .sidebar-flyout {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Escape suppresses the panel until the pointer or focus moves again. */
+    .admin-shell[data-sidebar-collapsed='true'] [data-flyout-suppressed] .sidebar-flyout {
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+
+    /* The group's own name heads its panel — without it the flyout is a list of
+       children with nothing saying what they belong to. */
+    .admin-shell[data-sidebar-collapsed='true'] .sidebar-flyout-title {
+        display: block;
+    }
+
+    /* Inside a flyout the items are ordinary rows again, not centred icons. */
+    .admin-shell[data-sidebar-collapsed='true'] .sidebar-flyout .sidebar-item {
+        justify-content: flex-start;
+        padding-left: 0.625rem;
+        padding-right: 0.625rem;
+    }
+
+    .admin-shell[data-sidebar-collapsed='true'] .sidebar-flyout .sidebar-label {
+        position: static;
+        width: auto;
+        height: auto;
+        margin: 0;
+        overflow: visible;
+        clip-path: none;
+    }
+
+    /* A leaf has no children to list, so its panel is just the name — it should
+       hug the text rather than inherit the group panel's 12rem floor. */
+    .admin-shell[data-sidebar-collapsed='true'] .sidebar-flyout--label {
+        min-width: 0;
+    }
+}
+
+/* The focus ring is a token too, so it stays visible in both themes. */
+.admin-shell :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+}
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/* ---------------------------------------------------------------------------
+   Accessibility
+   Preferences are set as attributes on <html> by resources/js/accessibility.js
+   and applied before first paint, so nothing flashes at the default first.
+--------------------------------------------------------------------------- */
+
+:root {
+    --a11y-scale: 1;
+}
+
+html {
+    /* Everything sized in rem follows this, so one control scales the page
+       without breaking any layout that uses relative units. */
+    font-size: calc(100% * var(--a11y-scale));
+}
+
+/* Colour-vision modes. The filters live in an inline <svg> on every public
+   page, so they work offline and need no extra request. */
+html[data-vision='protanopia'] body { filter: url('#a11y-protanopia'); }
+html[data-vision='deuteranopia'] body { filter: url('#a11y-deuteranopia'); }
+html[data-vision='tritanopia'] body { filter: url('#a11y-tritanopia'); }
+html[data-vision='grayscale'] body { filter: url('#a11y-grayscale'); }
+
+/* Links made unmistakable without relying on colour: an underline and a solid
+   outline carry the meaning even under a colour-vision filter. */
+html[data-highlight-links] a:not([class*='rounded-full']) {
+    text-decoration: underline !important;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 2px;
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+html[data-highlight-interactive] :is(button, [role='button'], input, select, textarea, summary) {
+    outline: 2px dashed currentColor;
+    outline-offset: 2px;
+}
+
+/* Hover and keyboard focus are treated alike, so the cue does not depend on
+   owning a mouse. */
+html[data-highlight-links] a:hover,
+html[data-highlight-links] a:focus-visible,
+html[data-highlight-interactive] :is(button, input, select, textarea):hover,
+html[data-highlight-interactive] :is(button, input, select, textarea):focus-visible {
+    background-color: #fef3c7;
+    color: #1c1917;
+}
+
+html[data-reduce-motion] *,
+html[data-reduce-motion] *::before,
+html[data-reduce-motion] *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+}
+
+/* The system-level preference is honoured even if the visitor never opens the
+   panel. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* A visible focus ring is never removed, only restyled. */
+:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   Long-form content rendered from the CMS
+--------------------------------------------------------------------------- */
+
+.content-body {
+    line-height: 1.75;
+}
+
+.content-body > * + * { margin-top: 1.25em; }
+.content-body h2 { font-size: 1.5rem; font-weight: 700; color: #0f172a; margin-top: 2em; }
+.content-body h3 { font-size: 1.25rem; font-weight: 600; color: #0f172a; margin-top: 1.75em; }
+.content-body p { color: #334155; }
+.content-body :is(ul, ol) { padding-left: 1.5rem; }
+.content-body ul { list-style: disc; }
+.content-body ol { list-style: decimal; }
+.content-body li + li { margin-top: 0.375em; }
+.content-body a {
+    color: #0f766e;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.content-body img { border-radius: 0.75rem; }
+.content-body blockquote {
+    border-left: 4px solid #0f766e;
+    padding-left: 1rem;
+    font-style: italic;
+    color: #475569;
+}
+
+/* ---------------------------------------------------------------------------
+   News section — magazine treatment
+   Modelled on the AzNews layout. Its accent (#fc3f00) is kept for badges and
+   display-size type, where 3:1 is the bar; small text uses a darker step of the
+   same hue (#db3700, 4.61:1) because the original fails WCAG AA at body size.
+--------------------------------------------------------------------------- */
+
+.news-theme {
+    --news-accent: #fc3f00;
+    --news-accent-text: #db3700;
+    --news-ink: #1f2937;
+    --news-muted: #6b7280;
+    --news-surface: #f7f7fd;
+
+    /* Inherits Inter from <body>: the project settled on one typeface, so the
+       news section no longer carries a face of its own. */
+}
+
+.news-theme .news-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--news-accent-text);
+}
+
+/* The theme's section heading: a heavy title with a short accent rule under it. */
+.news-theme .news-section-title {
+    position: relative;
+    padding-bottom: 0.75rem;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--news-ink);
+}
+
+.news-theme .news-section-title::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 3rem;
+    height: 3px;
+    background: var(--news-accent);
+}
+
+/* Category chip. The pastel fills come from the theme; each carries dark ink so
+   the label itself always clears contrast regardless of which pastel lands. */
+.news-theme .news-chip {
+    display: inline-block;
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #1f2937;
+}
+
+.news-theme .news-chip-1 { background: #ffe7e6; }
+.news-theme .news-chip-2 { background: #f4ffd5; }
+.news-theme .news-chip-3 { background: #e1fcff; }
+.news-theme .news-chip-4 { background: #fff9c6; }
+
+/* Overlay chip sits on photography, so it takes the solid accent and white ink
+   rather than a pastel that would disappear against a bright image. */
+.news-theme .news-chip-solid {
+    background: var(--news-accent);
+    color: #fff;
+}
+
+.news-theme .news-headline-link {
+    color: var(--news-ink);
+    transition: color 0.15s ease;
+}
+
+.news-theme .news-headline-link:hover,
+.news-theme .news-headline-link:focus-visible {
+    color: var(--news-accent-text);
+}
+
+.news-theme .news-meta {
+    font-size: 0.75rem;
+    color: var(--news-muted);
+}
+
+/* Ranked list in the sidebar: the number is the ornament, not a bullet. */
+.news-theme .news-rank {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1;
+    color: #e5e7eb;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+   Typography
+
+   One family, Inter, with roles carried by weight:
+     headings 700–800 · body 400–500 · buttons 600–700
+
+   Self-hosted rather than loaded from Google Fonts: a font request hands every
+   visitor's IP to a third party, which is the opposite of the stance the
+   visitor analytics takes. Two subsets, 132 KB, cached, no external round trip.
+   Latin-ext is a separate file so most visitors never download it.
+--------------------------------------------------------------------------- */
+
+@font-face {
+    font-family: 'Inter';
+    /* One variable file spans the whole 400–800 range the design uses. */
+    src: url('/fonts/Inter-latin.woff2') format('woff2');
+    font-weight: 400 800;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+        U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+        U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Inter';
+    src: url('/fonts/Inter-latin-ext.woff2') format('woff2');
+    font-weight: 400 800;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+        U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+        U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+    /* A modular scale, so heading sizes relate to each other instead of being
+       picked one at a time, and each step is fluid between phone and desktop. */
+    --step--1: clamp(0.83rem, 0.8rem + 0.15vw, 0.9rem);
+    --step-0: clamp(1rem, 0.96rem + 0.2vw, 1.06rem);
+    --step-1: clamp(1.2rem, 1.13rem + 0.35vw, 1.36rem);
+    --step-2: clamp(1.44rem, 1.33rem + 0.55vw, 1.7rem);
+    --step-3: clamp(1.73rem, 1.55rem + 0.9vw, 2.13rem);
+    --step-4: clamp(2.07rem, 1.8rem + 1.37vw, 2.66rem);
+    --step-5: clamp(2.49rem, 2.08rem + 2.05vw, 3.32rem);
+}
+
+body {
+    /* Public pages set --font-public from the admin's choice; the admin panel
+       never defines it and so keeps Inter. */
+    font-family: var(--font-public, Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif);
+    /* Inter's own optical tweaks: contextual alternates and tabular-friendly
+       shapes, plus a slight negative tracking that a geometric sans wants at
+       display sizes. These are Inter features; on another family they are
+       simply ignored, so the declaration can stay unconditional. */
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+:is(h1, h2, h3, h4) {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+h1 { font-weight: 800; }
+
+/* ---------------------------------------------------------------------------
+   Public homepage
+
+   Layout, rhythm and surface treatment follow the sarab reference; the colours
+   are the institution's own identity.
+
+   Contrast decides how each one may be used, not preference:
+     #02468B  8.91:1 on the page ground — safe as text anywhere
+     #EF8519  2.50:1 on light — a FILL and an accent, never text on light, and
+              the text placed on it is dark (6.67:1), never white (2.61:1)
+     #ad6012  4.50:1 — the text-safe step of the same orange hue
+--------------------------------------------------------------------------- */
+
+.sarab {
+    /* These follow the colours chosen in /admin/settings/appearance. The
+       fallbacks are the official identity and are what renders if the theme
+       block is ever absent. Every -ink and -on- value is derived by
+       App\Support\Color against the real contrast ratio, so a pale pick gets
+       dark lettering automatically instead of unreadable white. */
+    --sarab-primary: var(--brand-primary, #02468B);
+    --sarab-secondary: var(--brand-secondary, #EF8519);
+    --sarab-secondary-ink: var(--brand-secondary-ink, #ad6012);
+    --sarab-on-secondary: var(--brand-on-secondary, #0b1b2b);
+    --sarab-on-primary: var(--brand-on-primary, #ffffff);
+    --sarab-success: #22C55E;        /* 2.18:1 — status fills, never text */
+    --sarab-danger: #EF4444;
+    --sarab-dark: #0F172A;
+    --sarab-ink: #334155;
+    --sarab-cream: #F8FAFC;
+    --sarab-cream-2: #EFF4F9;
+    --sarab-light: #F8FAFC;
+    --sarab-shadow: 0 8px 40px rgb(0 0 0 / 0.1);
+    --sarab-shadow-lg: 0 20px 60px rgb(0 0 0 / 0.18);
+
+    color: var(--sarab-ink);
+    font-size: var(--step-0);
+    line-height: 1.7;
+}
+
+.sarab :is(h1, h2, h3) { color: var(--sarab-dark); }
+.sarab h1 { font-size: var(--step-5); font-weight: 800; }
+.sarab h2 { font-size: var(--step-4); font-weight: 700; }
+.sarab h3 { font-size: var(--step-1); font-weight: 700; }
+
+.sarab .sarab-eyebrow {
+    display: inline-block;
+    font-size: var(--step--1);
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--sarab-primary);
+}
+
+.sarab .sarab-lead {
+    font-size: var(--step-1);
+    font-weight: 400;
+    line-height: 1.6;
+}
+
+/* Sections breathe: the generous vertical rhythm is most of what makes the
+   reference read the way it does. */
+.sarab .sarab-section { padding-block: clamp(3.5rem, 2rem + 6vw, 7rem); }
+.sarab .sarab-cream { background: var(--sarab-cream); }
+.sarab .sarab-cream-2 { background: var(--sarab-cream-2); }
+.sarab .sarab-light { background: var(--sarab-light); }
+
+.sarab .sarab-card {
+    background: #fff;
+    border-radius: 1.25rem;
+    box-shadow: var(--sarab-shadow);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.sarab .sarab-card:hover,
+.sarab .sarab-card:focus-within {
+    transform: translateY(-4px);
+    box-shadow: var(--sarab-shadow-lg);
+}
+
+/* Pill buttons, the theme's signature control shape. */
+.sarab .sarab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    padding: 0.9rem 1.9rem;
+    font-weight: 600;
+    font-size: var(--step--1);
+    letter-spacing: 0.02em;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.sarab .sarab-btn-primary {
+    background: var(--sarab-primary);
+    color: var(--sarab-on-primary);
+    font-weight: 700;
+}
+/* Darkened from the chosen colour rather than a literal, which is how this
+   rule came to be stuck on sarab's original red after the palette changed. */
+.sarab .sarab-btn-primary:hover { background: color-mix(in oklab, var(--sarab-primary) 84%, black); }
+
+.sarab .sarab-btn-outline {
+    border: 2px solid var(--sarab-dark);
+    color: var(--sarab-dark);
+}
+
+.sarab .sarab-btn-outline:hover { background: var(--sarab-dark); color: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+    .sarab .sarab-card { transition: none; }
+    .sarab .sarab-card:hover,
+    .sarab .sarab-card:focus-within { transform: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Hero slider
+
+   Declared after the homepage block on purpose. `.sarab :is(h1,h2,h3)` sets a
+   dark heading colour at the same specificity as these rules, so order is what
+   decides — without this the hero's headline renders near-black on its own
+   dark photograph.
+--------------------------------------------------------------------------- */
+
+.hero :is(h1, h2, h3) {
+    color: #fff;
+}
+
+/* The slide copy is animated by hero-slider.js; anyone who has asked for less
+   motion gets the slide change with no movement at all. */
+@media (prefers-reduced-motion: reduce) {
+    .hero [data-hero-copy] {
+        transition: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+    }
+
+    .hero [data-hero-progress] {
+        transition: none !important;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   Flow editor
+
+   The canvas is a diagram, so its pieces cannot inherit the panel's ordinary
+   text styles. Everything here is scoped under .flow-canvas and the outline so
+   none of it escapes into the rest of the admin.
+--------------------------------------------------------------------------- */
+
+/* Tall enough to be worth looking at, but never taller than the window: a
+   canvas that pushes its own toolbar off the screen is a canvas you cannot
+   save from. */
+.flow-canvas {
+    height: clamp(24rem, calc(100vh - 24rem), 48rem);
+}
+
+/* One screen, toolbar and panel included — the extra room is only useful with
+   the controls still to hand. */
+[data-flow-editor].is-fullscreen {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--color-background);
+    overflow: auto;
+}
+
+/* `1 0 auto`, not `1`.
+
+   In fullscreen the root has a fixed height, and `flex: 1` means a basis of 0
+   that is free to shrink — so the tall outline card below took the whole
+   window and the canvas collapsed to its own borders. Refusing to shrink, plus
+   a floor, keeps the diagram the thing the screen is actually for; everything
+   below it scrolls. */
+[data-flow-editor].is-fullscreen > .grid {
+    flex: 1 0 auto;
+    min-height: min(62vh, 42rem);
+}
+
+[data-flow-editor].is-fullscreen .flow-canvas {
+    height: 100%;
+    min-height: min(62vh, 42rem);
+}
+
+[data-flow-editor].is-fullscreen > .grid > div:last-child {
+    overflow-y: auto;
+}
+
+.flow-canvas {
+    /* A faint grid, so a dragged node visibly lands somewhere rather than
+       floating in a void. */
+    background-image:
+        radial-gradient(circle, color-mix(in oklab, var(--color-border) 70%, transparent) 1px, transparent 1px);
+    background-size: 20px 20px;
+    cursor: grab;
+    touch-action: none;
+}
+
+.flow-canvas:active,
+.flow-canvas.is-panning { cursor: grabbing; }
+
+/* Space held: the whole surface becomes a grab handle, nodes included. */
+.flow-canvas.is-panning .flow-node,
+.flow-canvas.is-panning .flow-port { pointer-events: none; }
+
+/* The node layer covers the whole canvas, so without this every click on
+   "empty space" lands on it and the canvas never sees the press that should
+   start a pan. The boxes themselves take their events back. */
+[data-flow-nodes] { pointer-events: none; }
+
+.flow-node {
+    pointer-events: auto;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 210px;
+    display: grid;
+    gap: 0.125rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-card);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+    cursor: grab;
+    user-select: none;
+}
+
+.flow-node:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+}
+
+/* Selection is a border AND a ring, never colour alone: a single hue change
+   is invisible to some readers and disappears entirely in forced colours. */
+.flow-node.is-selected {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.flow-node-type {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-muted-foreground);
+}
+
+.flow-node-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.flow-node-key {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.6875rem;
+    color: var(--color-muted-foreground);
+}
+
+/* The start and end of a flow are worth finding at a glance. */
+.flow-node[data-type="start"] { border-left: 4px solid #16a34a; }
+.flow-node[data-type="end"] { border-left: 4px solid #64748b; }
+.flow-node[data-type="menu"] { border-left: 4px solid #2563eb; }
+.flow-node[data-type="input"] { border-left: 4px solid #d97706; }
+.flow-node[data-type="action"] { border-left: 4px solid #9333ea; }
+.flow-node[data-type="data_source"] { border-left: 4px solid #0891b2; }
+.flow-node[data-type="ai"] { border-left: 4px solid #db2777; }
+
+.flow-edge {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    opacity: 0.8;
+}
+
+/* The line being dragged out of a port: dashed, so it reads as a proposal
+   rather than a connection that already exists. */
+.flow-edge-ghost {
+    stroke: var(--color-primary);
+    stroke-dasharray: 6 4;
+    opacity: 0.9;
+}
+
+/* Connection points.
+
+   Small and faint until the pointer is near the node, because four dots on
+   every box would make a busy diagram noisier than it needs to be. They grow
+   on hover so they are still an easy target. */
+.flow-port {
+    position: absolute;
+    width: 11px;
+    height: 11px;
+    border-radius: 999px;
+    border: 2px solid var(--color-card);
+    background: var(--color-muted-foreground);
+    opacity: 0;
+    /* Invisible and untouchable together. An `opacity: 0` port still answers
+       the pointer, which is what was swallowing clicks on bare canvas next to
+       a node and stopping the view being dragged. */
+    pointer-events: none;
+    transition: opacity 120ms ease, transform 120ms ease;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.flow-node:hover .flow-port,
+.flow-node:focus-within .flow-port,
+.flow-node.is-selected .flow-port {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.flow-port:hover {
+    background: var(--color-primary);
+    transform: scale(1.35);
+}
+
+.flow-port-right { right: -6px; top: 50%; margin-top: -5.5px; }
+.flow-port-left { left: -6px; top: 50%; margin-top: -5.5px; }
+.flow-port-top { top: -6px; left: 50%; margin-left: -5.5px; }
+.flow-port-bottom { bottom: -6px; left: 50%; margin-left: -5.5px; }
+
+/* While a connection is being dragged, the box under the pointer says so. */
+.flow-canvas.is-linking { cursor: crosshair; }
+
+.flow-node.is-target {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 35%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .flow-port { transition: none; }
+}
+
+.flow-edge-label {
+    fill: currentColor;
+    font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    paint-order: stroke;
+    stroke: var(--color-card);
+    stroke-width: 4px;
+}
+
+.flow-outline-item {
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+}
+
+.flow-outline-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.flow-outline-key {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.75rem;
+    color: var(--color-muted-foreground);
+    background: var(--color-muted);
+    border-radius: 0.25rem;
+    padding: 0.0625rem 0.375rem;
+}
+
+.flow-outline-type {
+    font-size: 0.75rem;
+    color: var(--color-muted-foreground);
+}
+
+.flow-outline-edges {
+    margin-top: 0.5rem;
+    display: grid;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+}
+
+.flow-outline-edges > li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.flow-outline-add {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed var(--color-border);
+}
+
+.flow-outline-add select,
+.flow-outline-add input {
+    border: 1px solid var(--color-input);
+    background: var(--color-background);
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.flow-outline-action {
+    margin-left: auto;
+    border-radius: 0.375rem;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-primary);
+}
+
+.flow-outline-action:hover { background: var(--color-accent); }
+
+.flow-outline-add .flow-outline-action { margin-left: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+    .flow-node { transition: none; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Republished social posts, laid out the way Instagram lays a post out.
+ *
+ * Written as its own small stylesheet rather than as utility classes: this is
+ * one coherent widget with a dozen interlocking parts (a scroll-snap track, an
+ * overlay counter, a clamped caption), and the class names double as the hooks
+ * the carousel script reads.
+ *
+ * The palette is Instagram's, hard-coded on purpose. Every other surface on
+ * this site retints with the administrator's brand colour; a card claiming to
+ * reproduce a post would be a lie in the site's own blue, so the two link
+ * colours and the border stay where the platform has them.
+ */
+.ig-post {
+    --ig-border: #dbdbdb;
+    --ig-ink: #262626;
+    --ig-dim: #737373;
+    --ig-link: #00376b;
+
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 470px;
+    margin-inline: auto;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid var(--ig-border);
+    border-radius: 8px;
+    color: var(--ig-ink);
+    /* Instagram's own stack. The site's Inter is for the site's own voice. */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 18px;
+}
+
+.ig-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+}
+
+.ig-avatar {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    overflow: hidden;
+    border-radius: 9999px;
+    /* The ring Instagram draws around an account with a live story. Here it is
+       simply the frame the mark sits in. */
+    background: #fafafa;
+    box-shadow: 0 0 0 1px var(--ig-border);
+    color: var(--ig-dim);
+}
+
+.ig-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.ig-who { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; }
+
+.ig-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    color: var(--ig-ink);
+}
+
+.ig-who > .ig-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ig-verified { width: 14px; height: 14px; flex: 0 0 auto; color: #0095f6; }
+
+.ig-sub { font-size: 12px; line-height: 16px; color: var(--ig-dim); }
+
+.ig-more-glyph { width: 20px; height: 20px; flex: 0 0 auto; color: var(--ig-ink); }
+
+/* ---- media ---- */
+
+.ig-media { position: relative; background: #000; }
+
+.ig-track {
+    display: flex;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    /* Swipe works with no script at all; the arrows are the enhancement. */
+    -webkit-overflow-scrolling: touch;
+}
+
+.ig-track::-webkit-scrollbar { display: none; }
+
+.ig-slide {
+    position: relative;
+    flex: 0 0 100%;
+    scroll-snap-align: center;
+    aspect-ratio: var(--ig-ratio, 1 / 1);
+    background: #000;
+}
+
+.ig-slide img { width: 100%; height: 100%; object-fit: contain; }
+
+.ig-play {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    text-shadow: 0 1px 6px rgb(0 0 0 / 0.6);
+}
+
+.ig-play::before {
+    content: '';
+    position: absolute;
+    width: 56px;
+    height: 56px;
+    border-radius: 9999px;
+    background: rgb(0 0 0 / 0.45);
+}
+
+.ig-play > * { position: relative; }
+
+.ig-counter {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    background: rgb(0 0 0 / 0.6);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+}
+
+.ig-arrow {
+    position: absolute;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    translate: 0 -50%;
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.85);
+    color: #262626;
+    transition: opacity 150ms ease;
+}
+
+.ig-arrow--prev { left: 10px; }
+.ig-arrow--next { right: 10px; }
+.ig-arrow[disabled] { opacity: 0; pointer-events: none; }
+
+/* ---- body ---- */
+
+.ig-body { padding: 0 16px 16px; }
+
+.ig-dots {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin: 0;
+    padding: 12px 0 2px;
+    list-style: none;
+}
+
+.ig-dot {
+    display: block;
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: #c7c7c7;
+    transition: background-color 150ms ease;
+}
+
+.ig-dot.is-on { background: #0095f6; }
+
+.ig-actions { display: flex; align-items: center; gap: 16px; margin: 0; padding: 10px 0 6px; }
+
+.ig-glyph { width: 24px; height: 24px; stroke-width: 1.6; color: var(--ig-ink); }
+.ig-glyph--end { margin-left: auto; }
+
+.ig-likes { margin: 0 0 6px; font-weight: 600; }
+
+.ig-caption { margin: 0; overflow-wrap: anywhere; }
+.ig-caption .ig-name { margin-right: 5px; }
+
+/* Applied by script only: with no script the whole caption stays readable. */
+.ig-caption.is-clamped {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+}
+
+.ig-link { color: var(--ig-link); }
+.ig-link:hover { text-decoration: underline; }
+
+.ig-toggle { margin-top: 2px; color: var(--ig-dim); }
+.ig-toggle:hover { color: var(--ig-ink); }
+
+.ig-viewall { margin: 6px 0 0; }
+.ig-viewall a { color: var(--ig-dim); }
+.ig-viewall a:hover { text-decoration: underline; }
+
+.ig-comment { margin: 4px 0 0; overflow-wrap: anywhere; }
+.ig-comment .ig-name { margin-right: 5px; }
+
+.ig-foot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 10px 0 0;
+    font-size: 11px;
+    line-height: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--ig-dim);
+}
+
+.ig-permalink { color: var(--ig-dim); }
+.ig-permalink:hover { color: var(--ig-ink); text-decoration: underline; }
+
+.ig-post :focus-visible {
+    outline: 2px solid var(--ig-link);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ig-track { scroll-behavior: auto; }
+}
