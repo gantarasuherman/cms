@@ -25,3 +25,8 @@ Thumbs.db
 
 # Konfigurasi stack lokal (berisi kata sandi bawaan Laradock).
 laradock/.env
+
+# Hasil `cms:export`. Diabaikan secara bawaan karena sebuah ekspor bisa memuat
+# isi situs dan berkas unggahan, dan repositori ini publik. Untuk mengirimkan
+# satu ekspor tertentu: git add -f database/exports/<nama>
+/database/exports

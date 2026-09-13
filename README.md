@@ -248,6 +248,48 @@ angka atau gambar yang sudah ada (basi lebih baik daripada terhapus), dan angka
 yang tidak dilaporkan platform **tidak pernah** ditulis sebagai 0 — ikonnya tampil
 tanpa angka, dan itu lebih jujur.
 
+### Memindahkan situs ke mesin lain
+
+Isi awal situs — menu, warna, hak akses, alur chatbot, bank ikon, susunan
+beranda — adalah baris basis data, bukan kode. Dua perintah memindahkannya:
+
+```bash
+# Di mesin asal
+php artisan cms:export                 # konfigurasi saja
+php artisan cms:export --content       # sekalian berita, halaman, layanan, dokumen
+# → database/exports/2026-09-13-2232/
+
+# Di mesin tujuan
+php artisan migrate --force
+php artisan cms:import 2026-09-13-2232
+php artisan db:seed --class=AdminUserSeeder    # bila belum ada akun admin
+```
+
+Sengaja bukan `mysqldump`. Yang ikut hanya yang membuat sebuah instalasi
+kosong menjadi *situs ini*; yang tidak pernah ikut didaftar beserta alasannya
+di `App\Support\PortableData::excluded()`:
+
+| Tidak ikut | Alasan |
+| --- | --- |
+| `users`, `sessions`, `password_reset_tokens` | Akun dan kata sandi orang |
+| `audit_logs`, `page_views` | Jejak perbuatan dan statistik mesin asal |
+| `complaints`, `bot_contacts`, `bot_conversations`, `bot_messages` | Data warga pelapor: nomor telepon, lokasi, lampiran |
+| `bot_channels` | Kunci WhatsApp/Telegram, terenkripsi dengan APP_KEY mesin asal — tidak akan terbaca di mesin lain |
+| `migrations`, `cache`, `jobs` | Ditentukan oleh `migrate`, bukan oleh salinan data |
+
+Kunci API di tabel `settings` (`type = encrypted`) diekspor **kosong**, bukan
+dihapus: barisnya tetap ada agar layar pengaturannya utuh, dan `manifest.json`
+mencatat mana saja yang perlu diisi ulang lewat panel admin setelah impor.
+
+Berkas unggahan (logo, gambar berita, slide) ikut tersalin ke dalam folder
+ekspor, jadi tidak ada gambar rusak di mesin tujuan. Impornya mengganti isi
+tabel yang dibawanya dan tidak menyentuh tabel lain — memuat sebuah ekspor
+konfigurasi tidak akan menghapus akun admin atau audit log yang sudah ada.
+
+Folder `database/exports/` diabaikan Git secara bawaan karena sebuah ekspor
+bisa memuat isi situs. Untuk mengirimkan satu ekspor lewat repositori:
+`git add -f database/exports/<nama>`.
+
 ### Unggahan Instagram
 
 Tempelkan tautan unggahan di **`/admin/social-posts`** — sisanya terisi sendiri.
