@@ -974,7 +974,9 @@ class FlowEditor {
             html += field('Teks yang dikirim',
                 `<textarea data-field="config.text" rows="4"
                     class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">${this.escape(node.config?.text ?? '')}</textarea>`,
-                'Boleh memakai {site_name}, {ticket}, {category}, {status}.');
+                'Boleh memakai {site_name}, {ticket}, {category}, {status}. '
+                + 'Pada node masukan juga {requirements} — syarat lampiran jenis pengaduan yang dipilih, '
+                + 'misalnya "foto dan titik lokasi".');
         }
 
         if (node.type === 'input') {
@@ -1015,6 +1017,30 @@ class FlowEditor {
         }
 
         if (node.type === 'menu') {
+            const from = node.config?.options_from ?? '';
+
+            html += field('Pilihan diambil dari',
+                select('config.options_from', this.meta.optionSources ?? {}, from),
+                'Dibaca dari tabel berarti menambah jenis pengaduan langsung menambah pilihan di chat.');
+
+            if (from) {
+                // Daftar yang diketik tangan disembunyikan, bukan sekadar
+                // diabaikan diam-diam: dua daftar di layar yang sama, satu di
+                // antaranya tidak berpengaruh, adalah cara tercepat membuat
+                // orang menyunting yang salah.
+                html += field('Kembali ke menu',
+                    `<label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" data-field="config.include_back" ${node.config?.include_back ? 'checked' : ''}
+                               class="h-4 w-4 rounded border-input text-primary">
+                        Tambahkan pilihan "0" untuk kembali
+                     </label>`,
+                    'Tanpa ini, orang yang salah masuk ke menu ini tidak punya jalan keluar selain menunggu sesi habis.');
+
+                html += field('Teks pilihan kembali', input('config.back_label', node.config?.back_label ?? 'Kembali ke Menu'));
+            }
+        }
+
+        if (node.type === 'menu' && ! node.config?.options_from) {
             html += field('Pilihan',
                 `<div data-options class="space-y-2">${(node.config?.options ?? []).map((o, i) => `
                     <div class="flex gap-2">
@@ -1047,7 +1073,12 @@ class FlowEditor {
         this.panel.querySelectorAll('[data-field]').forEach((el) => {
             el.addEventListener('change', () => {
                 const path = el.dataset.field;
-                const value = el.type === 'number' ? Number(el.value) : el.value;
+
+                // Kotak centang menyimpan keadaannya di `checked`; `value`
+                // sebuah checkbox tetap "on" baik ia dicentang maupun tidak.
+                const value = el.type === 'checkbox'
+                    ? el.checked
+                    : (el.type === 'number' ? Number(el.value) : el.value);
 
                 if (path === 'key') {
                     this.rename(node.key, value.trim());
@@ -1081,6 +1112,12 @@ class FlowEditor {
                 this.markDirty();
                 this.renderNodes();
                 this.renderOutline();
+
+                // Sumber pilihan menentukan medan mana yang masuk akal
+                // ditampilkan, jadi panelnya disusun ulang setelah diganti.
+                if (path === 'config.options_from') {
+                    this.renderPanel();
+                }
             });
         });
 

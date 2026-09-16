@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Bot;
 
 use App\Http\Controllers\Controller;
 use App\Models\Bot\BotChannel;
+use App\Models\Bot\BotContact;
+use App\Models\Bot\BotConversation;
 use App\Models\Bot\BotRecipient;
 use App\Services\Bot\BotEngine;
 use App\Services\Bot\CommandHandler;
@@ -94,15 +96,91 @@ class InboundController extends Controller
             ->where('destination', $message->from)
             ->first();
 
-        if ($recipient && $message->isCommand()) {
-            $replies = $this->commands->handle($channel, $message, $recipient);
+        if ($recipient) {
+            // Triase yang sedang berjalan menangkap jawaban bernomor lebih
+            // dulu — tetapi hanya angka yang memang ditawarkannya. Petugas
+            // tetap boleh menyela dengan /info atau /jawab tanpa kehilangan
+            // tempatnya dalam triase.
+            $answered = $this->commands->continueTriage($recipient, $message);
 
-            if ($replies !== null) {
-                return $this->reply('command', $replies);
+            if ($answered !== null) {
+                return $this->reply('command', $answered);
             }
+
+            if ($message->isCommand()) {
+                $replies = $this->commands->handle($channel, $message, $recipient);
+
+                if ($replies !== null) {
+                    return $this->reply('command', $replies);
+                }
+            }
+
+            // Petugas boleh menjadi warga, tetapi harus memintanya.
+            //
+            // Nomor terdaftar adalah meja kerja: menjatuhkannya ke menu
+            // "1. Pengaduan, 2. Cek Aduan" pada setiap pesan membuat grup
+            // petugas mulai mengisi formulir pengaduan tiap kali ada yang
+            // mengetik, dan balasan bot bercampur dengan kabar pengaduan yang
+            // sedang dibaca.
+            //
+            // Tetapi petugas juga orang: ia punya jalan yang berlubang di
+            // depan rumahnya. `/menu` membuka alur warga untuknya, dan selama
+            // percakapan itu masih hidup setiap pesan biasa diteruskan ke sana
+            // — kalau tidak, ia akan tersangkut pada pertanyaan pertama.
+            if ($this->citizenMode($channel, $message)) {
+                return $this->reply('handled', $this->engine->handle($channel, $message));
+            }
+
+            // Diam kecuali memang diajak bicara.
+            //
+            // Nomor petugas sering berupa GRUP, tempat orang berbicara satu
+            // sama lain sepanjang hari. Membalas setiap pesan biasa dengan
+            // daftar perintah membuat bot menyela tiap kali ada yang mengetik
+            // — daftar yang sama, berulang-ulang, sampai kabar pengaduan yang
+            // sebenarnya tenggelam di antaranya. Grup yang berisik adalah grup
+            // yang berhenti dibaca.
+            //
+            // Pesan berawalan garis miring tetap dijawab meski perintahnya
+            // tidak dikenali: itu salah ketik, dan salah ketik yang dibalas
+            // diam membuat orang mengira botnya mati.
+            if (! $message->isCommand()) {
+                return $this->reply('ignored', []);
+            }
+
+            return $this->reply('command', [
+                OutgoingMessage::text($this->commands->help($recipient)),
+            ]);
         }
 
         return $this->reply('handled', $this->engine->handle($channel, $message));
+    }
+
+    /**
+     * Apakah pesan ini harus dilayani sebagai warga, bukan sebagai petugas.
+     *
+     * Dua keadaan, dan keduanya perlu:
+     *
+     * - `/menu` (atau `/mulai`) — permintaan tegas untuk membuka alur warga.
+     * - Percakapan warga yang masih hidup — tanpa ini, pesan berikutnya
+     *   dijawab daftar perintah dan orangnya tersangkut selamanya pada
+     *   pertanyaan pertama.
+     *
+     * Sengaja hanya menerima bentuk bergaris miring. Kata "menu" telanjang
+     * lazim terucap dalam obrolan grup petugas, dan bot yang ikut menyela
+     * setiap kali kata itu lewat akan membuat orang berhenti membacanya.
+     */
+    private function citizenMode(BotChannel $channel, IncomingMessage $message): bool
+    {
+        if (in_array($message->command(), ['menu', 'mulai'], true)) {
+            return true;
+        }
+
+        $contact = BotContact::where('bot_channel_id', $channel->getKey())
+            ->where('external_id', $message->from)
+            ->first();
+
+        return $contact !== null
+            && BotConversation::open()->where('bot_contact_id', $contact->getKey())->exists();
     }
 
     /**

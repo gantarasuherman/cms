@@ -32,6 +32,7 @@ class BotChannel extends Model
         self::WHATSAPP => [
             'phone_number_id' => ['label' => 'Phone Number ID', 'secret' => false, 'hint' => 'Dari WhatsApp Manager pada akun Meta Business Anda.'],
             'business_account_id' => ['label' => 'Business Account ID', 'secret' => false, 'hint' => 'Opsional; dipakai sebagian panggilan lanjutan.'],
+            'app_id' => ['label' => 'App ID', 'secret' => false, 'hint' => 'Dari Meta → App → Settings → Basic. Diisi agar alamat webhook didaftarkan sendiri setiap layanan naik; dikosongkan berarti alamatnya ditempel manual di dasbor Meta.'],
             'token' => ['label' => 'Access Token', 'secret' => true, 'hint' => 'Token sistem berumur panjang dengan izin whatsapp_business_messaging.'],
             'verify_token' => ['label' => 'Verify Token', 'secret' => true, 'hint' => 'Kata apa pun yang Anda tentukan sendiri; Meta mengembalikannya saat mendaftarkan webhook.'],
             'app_secret' => ['label' => 'App Secret', 'secret' => true, 'hint' => 'Dipakai memverifikasi tanda tangan setiap webhook. Tanpa ini webhook ditolak.'],

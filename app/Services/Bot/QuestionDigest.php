@@ -4,6 +4,7 @@ namespace App\Services\Bot;
 
 use App\Models\Bot\BotNode;
 use App\Models\BotQuestionTopic;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -49,11 +50,18 @@ class QuestionDigest
      *     variants: array<int, string>, topic: BotQuestionTopic|null
      * }>
      */
-    public function topics(string $status = BotQuestionTopic::NEW, int $minimumAsks = 1): Collection
-    {
+    /**
+     * @param  CarbonInterface|null  $from  Batas periode; null berarti sejak awal.
+     */
+    public function topics(
+        string $status = BotQuestionTopic::NEW,
+        int $minimumAsks = 1,
+        ?CarbonInterface $from = null,
+        ?CarbonInterface $to = null,
+    ): Collection {
         $decisions = BotQuestionTopic::with('faq')->get()->keyBy('fingerprint');
 
-        $grouped = $this->group($this->questions());
+        $grouped = $this->group($this->questions($from, $to));
 
         return $grouped
             ->map(function (array $group) use ($decisions) {
@@ -98,7 +106,7 @@ class QuestionDigest
      *
      * @return Collection<int, object>
      */
-    private function questions(): Collection
+    private function questions(?CarbonInterface $from = null, ?CarbonInterface $to = null): Collection
     {
         $nodes = $this->questionNodes();
 
@@ -111,6 +119,8 @@ class QuestionDigest
             ->whereIn('node_key', $nodes)
             ->whereNotNull('body')
             ->where('body', '!=', '')
+            ->when($from, fn ($query) => $query->where('bot_messages.created_at', '>=', $from))
+            ->when($to, fn ($query) => $query->where('bot_messages.created_at', '<=', $to))
             ->join('bot_conversations', 'bot_conversations.id', '=', 'bot_messages.bot_conversation_id')
             ->select([
                 'bot_messages.body',

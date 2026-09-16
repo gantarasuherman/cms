@@ -1,0 +1,36 @@
+# Dipakai service `bot`, yang build context-nya adalah root project supaya
+# bot/requirements.txt tetap satu-satunya tempat versi dicatat. Tanpa berkas
+# ini seluruh vendor/ dan node_modules/ ikut terkirim ke daemon setiap build.
+
+.git
+.gitignore
+
+vendor
+node_modules
+public/build
+public/hot
+public/storage
+
+storage/app/private
+storage/app/public
+storage/debugbar
+storage/framework/cache
+storage/framework/sessions
+storage/framework/testing
+storage/framework/views
+storage/logs
+
+database/dumps
+# Kecuali berkas build service bot itu sendiri, yang disalin dari sini.
+laradock
+!laradock/bot
+docs
+tests
+
+.env
+.env.*
+!.env.example
+
+**/__pycache__
+**/*.pyc
+composer.phar

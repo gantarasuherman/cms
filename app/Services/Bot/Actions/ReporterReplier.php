@@ -24,16 +24,29 @@ use Illuminate\Support\Facades\DB;
  */
 class ReporterReplier
 {
-    /** @return bool false when there is nobody reachable to reply to */
-    public function send(Complaint $complaint, string $body, ?string $mediaPath = null, ?User $by = null): bool
-    {
+    /**
+     * @param  string  $source  Dari mana balasan ini ditulis: panel, atau kanal
+     *                          chat tempat petugas mengetiknya.
+     * @param  string|null  $actor  Nama yang tercatat pada riwayat bila
+     *                              penulisnya bukan pengguna panel — sebuah
+     *                              grup petugas tidak punya baris `users`.
+     * @return bool false when there is nobody reachable to reply to
+     */
+    public function send(
+        Complaint $complaint,
+        string $body,
+        ?string $mediaPath = null,
+        ?User $by = null,
+        string $source = 'admin',
+        ?string $actor = null,
+    ): bool {
         $contact = $complaint->contact;
 
         if (! $contact || blank($contact->external_id) || ! $contact->channel) {
             return false;
         }
 
-        DB::transaction(function () use ($complaint, $contact, $body, $mediaPath, $by) {
+        DB::transaction(function () use ($complaint, $contact, $body, $mediaPath, $by, $source, $actor) {
             DB::table('bot_outbox')->insert([
                 'channel' => $contact->channel->key,
                 'destination' => $contact->external_id,
@@ -65,8 +78,8 @@ class ReporterReplier
                 'to_status' => $complaint->status,
                 'note' => $body,
                 'user_id' => $by?->getKey(),
-                'source' => 'admin',
-                'source_actor' => $by?->name,
+                'source' => $source,
+                'source_actor' => $actor ?? $by?->name,
             ]);
         });
 

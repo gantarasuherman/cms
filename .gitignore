@@ -30,3 +30,14 @@ laradock/.env
 # isi situs dan berkas unggahan, dan repositori ini publik. Untuk mengirimkan
 # satu ekspor tertentu: git add -f database/exports/<nama>
 /database/exports
+
+# Hasil `mysqldump`. Diabaikan dengan alasan yang sama seperti ekspor di atas:
+# sebuah dump memuat seluruh isi tabel — termasuk hash kata sandi admin dan,
+# di situs yang sudah jalan, transkrip percakapan dan nomor telepon warga.
+/database/dumps
+
+# Bytecode Python layanan bot. Container bot menulis ulang berkas ini setiap
+# kali jalan, jadi selama terlacak ia muncul sebagai perubahan pada setiap
+# `git status` tanpa ada yang benar-benar berubah.
+__pycache__/
+*.pyc

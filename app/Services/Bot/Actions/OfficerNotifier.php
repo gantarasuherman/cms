@@ -28,15 +28,29 @@ class OfficerNotifier
         }
 
         $body = $this->compose($complaint);
+
+        // Foto pelapor ikut dikirim, bukan hanya disebut ada.
+        //
+        // Petugas membaca kabar ini di ponsel, sering di jalan. Kalimat "2 foto
+        // terlampir pada panel admin" memaksa mereka membuka laptop untuk
+        // menjawab pertanyaan yang paling menentukan — seberapa parah, dan
+        // perlu bawa apa. Satu foto pertama biasanya sudah menjawabnya.
+        //
+        // Hanya yang pertama: mengantre satu baris per foto membuat sepuluh
+        // pesan beruntun masuk ke grup petugas untuk satu laporan, dan grup
+        // yang berisik adalah grup yang berhenti dibaca. Sisanya tetap
+        // disebutkan jumlahnya, dan seluruhnya ada di panel.
+        $photo = $complaint->evidence()->orderBy('id')->first();
         $queued = 0;
 
-        DB::transaction(function () use ($recipients, $complaint, $body, &$queued) {
+        DB::transaction(function () use ($recipients, $complaint, $body, $photo, &$queued) {
             foreach ($recipients as $recipient) {
                 DB::table('bot_outbox')->insert([
                     'channel' => $recipient->channel,
                     'destination' => $recipient->destination,
-                    'type' => 'text',
+                    'type' => $photo ? 'image' : 'text',
                     'body' => $body,
+                    'media_path' => $photo?->path,
                     'payload' => json_encode(['complaint_id' => $complaint->getKey()]),
                     'status' => 'pending',
                     'available_at' => now(),
@@ -71,14 +85,44 @@ class OfficerNotifier
 
         $photos = $complaint->evidence()->count();
 
-        if ($photos > 0) {
-            $lines[] = $photos.' foto terlampir pada panel admin.';
+        if ($photos === 1) {
+            // Fotonya menyertai pesan ini, jadi tidak perlu dikatakan apa-apa
+            // tentang panel — mengarahkan orang ke tempat lain untuk melihat
+            // sesuatu yang sudah ada di tangannya hanya membuang waktunya.
+            $lines[] = '';
+            $lines[] = 'Foto pelapor terlampir.';
+        } elseif ($photos > 1) {
+            $lines[] = '';
+            $lines[] = 'Foto pertama dari '.$photos.' terlampir; selebihnya pada panel admin.';
         }
 
+        /*
+         | Tiap perintah dalam blok kodenya sendiri.
+         |
+         | Telegram menyalin seluruh isi sebuah blok kode dengan satu ketukan,
+         | jadi satu blok berisi tiga perintah akan menyalin ketiganya
+         | sekaligus — tidak berguna. Satu blok per perintah membuat yang
+         | disalin persis yang ditekan, tinggal ditempel dan dikirim.
+         |
+         | Bentuk tiga-petik dipilih karena bekerja di kedua kanal: Telegram
+         | menjadikannya blok kode yang dapat disalin, WhatsApp menjadikannya
+         | monospace yang mudah ditekan-lama. Satu petik hanya dikenali
+         | Telegram, dan akan tampil apa adanya di WhatsApp.
+         */
         $lines[] = '';
-        $lines[] = 'Balas /proses '.$complaint->ticket.' untuk menandai sedang dikerjakan,';
-        $lines[] = 'atau /selesai '.$complaint->ticket.' bila sudah ditangani.';
+        $lines[] = 'Bukan kewenangan kita — arahkan ke instansi lain:';
+        $lines[] = $this->command('/bukan '.$complaint->ticket);
+        $lines[] = 'Sedang dikerjakan:';
+        $lines[] = $this->command('/proses '.$complaint->ticket);
+        $lines[] = 'Sudah ditangani:';
+        $lines[] = $this->command('/selesai '.$complaint->ticket);
 
         return implode("\n", $lines);
+    }
+
+    /** Satu perintah, siap disalin dengan sekali ketuk. */
+    private function command(string $text): string
+    {
+        return "```\n".$text."\n```";
     }
 }

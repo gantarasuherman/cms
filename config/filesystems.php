@@ -53,6 +53,22 @@ return [
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
+
+            /*
+             | Direktori dibuat dapat ditulis oleh grup, bukan hanya pemiliknya.
+             |
+             | Beberapa proses menulis ke disk yang sama dengan identitas
+             | berbeda: php-fpm sebagai www-data, sedangkan artisan dan antrean
+             | dijalankan dari container workspace. Dengan 0755 bawaan,
+             | direktori yang kebetulan dibuat lebih dulu oleh salah satunya
+             | menjadi tidak dapat ditulis yang lain — dan gejalanya jauh dari
+             | sebabnya: peta yang tampil kosong karena petaknya tidak bisa
+             | disimpan.
+             */
+            'permissions' => [
+                'file' => ['public' => 0664, 'private' => 0600],
+                'dir' => ['public' => 0775, 'private' => 0700],
+            ],
         ],
 
         's3' => [

@@ -5,6 +5,7 @@ namespace Tests\Feature\Bot;
 use App\Models\AuditLog;
 use App\Models\Bot\BotChannel;
 use App\Models\Complaint;
+use App\Models\ComplaintCategory;
 use App\Models\Faq;
 use App\Models\User;
 use App\Services\Ai\AiAssistant;
@@ -206,6 +207,16 @@ class AiAssistantTest extends TestCase
         $reply = $this->reply('Apakah tersedia bantuan perbaikan rumah tidak layak huni?');
 
         $this->assertStringContainsString('teruskan kepada petugas', mb_strtolower($reply));
+
+        // Bidangnya ditanyakan lebih dulu, supaya pertanyaan sampai kepada
+        // petugas yang mengurusnya, bukan hanya pemegang kategori "Pertanyaan".
+        $position = ComplaintCategory::where('is_active', true)
+            ->orderBy('sort_order')
+            ->pluck('slug')
+            ->search('lainnya');
+
+        $this->reply((string) ($position + 1));
+
         $this->assertSame(1, Complaint::count());
         $this->assertSame('Apakah tersedia bantuan perbaikan rumah tidak layak huni?', Complaint::first()->description);
     }

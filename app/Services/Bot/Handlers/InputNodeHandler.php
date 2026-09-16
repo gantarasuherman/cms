@@ -35,9 +35,22 @@ class InputNodeHandler implements NodeHandler
 
     public function enter(BotNode $node, BotConversation $conversation): NodeResult
     {
-        $lines = [$this->renderer->render($node->setting('text'), $conversation->state['answers'] ?? [])];
+        // Jenis pengaduan yang tidak mewajibkan bukti apa pun tidak ditanyai
+        // bukti sama sekali.
+        //
+        // Sebelumnya pertanyaannya tetap muncul dengan tawaran "balas LEWATI".
+        // Untuk keluhan yang memang tidak ada wujudnya — pelayanan lambat,
+        // antrean tak jelas — itu satu langkah yang hanya bisa dijawab dengan
+        // menolaknya, dan setiap langkah tambahan adalah tempat orang berhenti
+        // mengetik. Bukti kembali ditanyakan begitu salah satu syaratnya
+        // dicentang pada jenis pengaduan itu.
+        if ($this->isOptional($node, $conversation)) {
+            return NodeResult::next('valid');
+        }
 
-        if ($this->isOptional($node, $conversation) && $node->setting('skip_label')) {
+        $lines = [$this->renderer->render($node->setting('text'), $this->values($conversation))];
+
+        if ($node->setting('skip_label')) {
             $lines[] = '';
             $lines[] = $this->renderer->render($node->setting('skip_label'));
         }
@@ -45,10 +58,42 @@ class InputNodeHandler implements NodeHandler
         return NodeResult::ask([OutgoingMessage::text(implode("\n", array_filter($lines)), $node->key)]);
     }
 
+    /**
+     * Nilai yang tersedia untuk `{placeholder}` pada pertanyaan node ini.
+     *
+     * Jawaban-jawaban percakapan apa adanya — `{category}` sudah ada di sana
+     * sejak menu jenis pengaduan dijawab — ditambah `{requirements}`, yang
+     * bukan jawaban warga melainkan turunan dari jenis yang dipilihnya.
+     *
+     * @return array<string, mixed>
+     */
+    private function values(BotConversation $conversation): array
+    {
+        return ($conversation->state['answers'] ?? []) + [
+            'requirements' => $this->describer->requirements($conversation),
+        ];
+    }
+
     public function receive(BotNode $node, BotConversation $conversation, IncomingMessage $message): NodeResult
     {
         $this->conversation = $conversation;
         $this->message = $message;
+
+        // Jalan keluar bernomor, seperti pada menu.
+        //
+        // Sebuah node yang hanya menerima teks bebas tidak punya "pilihan 0",
+        // jadi tanpa ini satu-satunya cara keluar dari perulangan tanya-jawab
+        // adalah mengetik "menu" — sesuatu yang tidak pernah diberitahukan di
+        // layar itu. Diperiksa sebelum isinya dinilai, supaya "0" tidak lebih
+        // dulu ditolak karena terlalu pendek.
+        // Dibandingkan terhadap null, bukan diuji kebenarannya: nilai yang
+        // paling wajar untuk kolom ini justru "0", dan "0" itu falsy di PHP —
+        // sebuah `if ($back = ...)` di sini tidak akan pernah menyala.
+        $back = $node->setting('back_on');
+
+        if ($back !== null && $back !== '' && trim($message->body()) === (string) $back) {
+            return NodeResult::next('back');
+        }
 
         return match ($node->setting('input', 'text')) {
             'image_location' => $this->receiveEvidence($node, $conversation, $message),

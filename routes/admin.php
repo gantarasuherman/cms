@@ -7,8 +7,12 @@ use App\Http\Controllers\Admin\BotChannelController;
 use App\Http\Controllers\Admin\BotConversationController;
 use App\Http\Controllers\Admin\BotDataSourceController;
 use App\Http\Controllers\Admin\BotFlowController;
+use App\Http\Controllers\Admin\BotRecipientController;
+use App\Http\Controllers\Admin\BotSimulatorController;
 use App\Http\Controllers\Admin\BotQuestionController;
+use App\Http\Controllers\Admin\ComplaintCategoryController;
 use App\Http\Controllers\Admin\ComplaintController;
+use App\Http\Controllers\Admin\DispositionTargetController;
 use App\Http\Controllers\Admin\MapTileController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CategoryController;
@@ -185,6 +189,18 @@ Route::middleware(['auth', 'active'])->group(function () use ($categoryRoutes) {
         ->except('show');
 
     /* ------------------------------------------------- Pengaduan & chatbot */
+    // Jenis pengaduan beserta syarat buktinya. Nama rutenya sengaja tidak
+    // berada di bawah "complaints/" agar tidak pernah tertelan oleh
+    // complaints/{complaint} yang menerima sembarang segmen.
+    Route::resource('complaint-categories', ComplaintCategoryController::class)
+        ->parameters(['complaint-categories' => 'category'])
+        ->except('show');
+
+    // Instansi tujuan penerusan, dipakai triase petugas dari chat.
+    Route::resource('dispositions', DispositionTargetController::class)
+        ->parameters(['dispositions' => 'target'])
+        ->except('show');
+
     Route::get('complaints/data', [ComplaintController::class, 'data'])->name('complaints.data');
     // Attachments are served here rather than from a public disk: they are
     // photographs of somebody's street, sent privately.
@@ -230,6 +246,14 @@ Route::middleware(['auth', 'active'])->group(function () use ($categoryRoutes) {
         Route::resource('data-sources', BotDataSourceController::class)
             ->parameters(['data-sources' => 'dataSource'])
             ->except('show');
+
+        // Siapa yang dikabari saat pengaduan baru masuk, per kategori.
+        Route::resource('recipients', BotRecipientController::class)->except('show');
+
+        // Mencoba percakapan dari panel, lewat mesin yang sama dengan aslinya.
+        Route::get('simulator', [BotSimulatorController::class, 'index'])->name('simulator.index');
+        Route::post('simulator', [BotSimulatorController::class, 'send'])->name('simulator.send');
+        Route::delete('simulator', [BotSimulatorController::class, 'reset'])->name('simulator.reset');
 
         Route::get('conversations/data', [BotConversationController::class, 'data'])->name('conversations.data');
         Route::get('conversations', [BotConversationController::class, 'index'])->name('conversations.index');

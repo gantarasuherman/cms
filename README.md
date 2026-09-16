@@ -39,6 +39,240 @@ docker compose exec workspace php artisan db:seed --class=DemoContentSeeder
 
 Rincian stack ada di [`laradock/README.md`](laradock/README.md).
 
+## Menyiapkan chatbot: Telegram dan WhatsApp
+
+Alasan di balik rancangannya ada di [`docs/chatbot.md`](docs/chatbot.md); yang
+di bawah ini urutan mengerjakannya.
+
+Kerjakan **Telegram dulu sampai benar-benar membalas**. Telegram bisa bekerja
+tanpa alamat publik, sehingga bila nanti WhatsApp bermasalah, alur percakapan
+dan mesin Laravel sudah terbukti dan yang tersisa untuk dicurigai tinggal
+terowongan serta kredensial Meta.
+
+### 1. Isi kategori dan alur percakapan
+
+```bash
+cd laradock
+docker compose exec workspace php artisan db:seed --class=ComplaintCategorySeeder
+docker compose exec workspace php artisan db:seed --class=BotFlowSeeder
+```
+
+Kedua kanal lahir **nonaktif**. Kanal yang menjawab publik begitu di-seed
+adalah kanal yang belum sempat ditinjau siapa pun.
+
+### 2. Telegram
+
+1. Buat bot di [@BotFather](https://t.me/BotFather) → `/newbot` → salin tokennya (`123456789:AA…`)
+2. `/admin/bot/channels` → **Telegram** → tempel token, pilih alur **Alur Utama**, aktifkan, simpan
+3. Tekan **Uji Koneksi** — token yang sekadar tersimpan tidak membuktikan apa pun
+4. `docker compose restart bot`
+
+Langkah 4 wajib. Mode layanan bot dipilih **saat container start**: bot yang
+telanjur hidup tanpa token tetap berjalan sebagai `drain` dan tidak pernah
+menanyakan Telegram. Setelah restart, lognya harus berbunyi
+`Token Telegram ditemukan — mode poll`.
+
+```bash
+docker compose logs bot --tail=20
+```
+
+Kirim pesan apa saja ke bot itu; ia harus membalas menu utama.
+
+### 3. Petugas penerima (PIC)
+
+Tanpa langkah ini pengaduan tetap tersimpan, tetapi **tidak ada yang
+dikabari** — ia hanya menunggu seseorang kebetulan membuka panel.
+
+1. Suruh petugas (atau grup) mengirim satu pesan ke bot, supaya nomornya dikenal
+2. Ambil id-nya: `/admin/bot/conversations`, atau dari tabel `bot_contacts`
+3. `/admin/bot/recipients` → **Tambah Petugas** → isi nama, kanal, dan nomor tujuan
+
+| Kanal | Bentuk nomor tujuan |
+|---|---|
+| WhatsApp | Format internasional tanpa tanda baca: `628123456789` |
+| Telegram | Chat id berupa angka; **grup bernilai negatif**: `-5331876003` |
+
+Centang kategori yang dipegangnya. Dibiarkan kosong berarti memegang semuanya —
+dan petugas irigasi yang dibanjiri pengaduan jalan berlubang akan berhenti
+membaca kabar itu sama sekali.
+
+Centang **Boleh memerintah** hanya bila nomor itu memang berhak mengubah status
+pengaduan. Untuk grup, ingat bahwa artinya *siapa pun di dalam grup itu*.
+
+Nomor yang terdaftar tidak pernah melihat menu warga. Ia hanya menerima kabar
+pengaduan dan melayani perintah:
+
+```
+/info ADU-XXXXXXXX      melihat keadaan satu pengaduan
+/jawab ADU-XXXXXXXX …   mengirim jawaban kepada pelapor
+/proses ADU-XXXXXXXX    menandai sedang dikerjakan
+/selesai ADU-XXXXXXXX   menandai sudah ditangani
+/tolak ADU-XXXXXXXX     menandai ditolak
+/help                   daftar perintah dan kategori yang dipegang
+                        (juga /bantuan dan /start)
+/menu                   membuka layanan seperti yang dilihat warga
+/petugas                menutupnya dan kembali ke mode petugas
+```
+
+Petugas juga orang: ia punya jalan berlubang di depan rumahnya. `/menu`
+membuka alur warga untuk nomor itu — mengadu, cek aduan, bertanya — dan selama
+percakapan itu hidup, pesan biasa diteruskan ke sana. `/petugas` menutupnya.
+
+Perintah petugas **tetap bekerja** selama alur warga terbuka, jadi kabar
+pengaduan tidak berhenti hanya karena seseorang sedang memakai layanan.
+
+Sakelarnya sengaja harus diminta. Kata "menu" telanjang lazim terucap dalam
+obrolan grup, dan bot yang menyela setiap kali kata itu lewat akan membuat
+orang berhenti membacanya — karena itu hanya bentuk bergaris miring yang
+diterima.
+
+Tulisan setelah nomor tiket tersimpan sebagai catatan, dan foto yang
+menyertai `/selesai` tersimpan sebagai bukti tindak lanjut — terpisah dari foto
+pelapor.
+
+`/jawab` ada karena pertanyaan warga menunggu kalimat, bukan perubahan status:
+menandai sebuah pertanyaan "selesai" tanpa pernah menjawabnya membuat antrean
+terlihat rapi sementara orangnya tidak pernah mendengar apa pun. Jawabannya
+dikirim ke kanal tempat ia mengadu, tercatat pada riwayat atas nama petugasnya,
+dan **tidak menutup pengaduannya** — menjawab sebagian tidak sama dengan
+menuntaskan.
+
+Kabar pengaduan yang dikirim ke petugas **menyertakan foto pelapor** bila ada.
+Yang dilampirkan hanya foto pertama; sisanya disebut jumlahnya dan ada di panel
+— satu pesan per foto akan membuat grup petugas berisik untuk satu laporan.
+
+### 4. WhatsApp
+
+Meta **tidak menyediakan polling**: pesan datang lewat webhook, jadi Meta harus
+dapat menghubungi bot ini. Alamat `localhost` tidak dapat dijangkau dari luar,
+sehingga langkah ini selalu memerlukan alamat HTTPS publik.
+
+**a. Nyalakan mode webhook dan terowongannya**
+
+```bash
+# laradock/.env
+BOT_MODE=serve
+```
+
+```bash
+docker compose up -d
+docker compose logs bot | grep "Alamat publik"
+```
+
+Alamat yang tercetak itulah alamat publiknya. Webhook-nya:
+
+```
+https://<alamat-itu>/api/webhook/whatsapp
+https://<alamat-itu>/api/webhook/telegram
+```
+
+**Alamat itu didaftarkan sendiri setiap layanan naik.** Bot menanyakannya ke
+cloudflared, lalu mengarahkan Telegram ke sana lewat `setWebhook` — tidak ada
+yang perlu ditempel dengan tangan, dan `BOT_MODE=serve` tidak lagi membuat
+Telegram diam. WhatsApp menyusul otomatis begitu **App ID** diisi (lihat 4b).
+
+> Alamat `trycloudflare.com` **acak dan berubah setiap container cloudflared
+> dibuat ulang** — itu sifat quick tunnel, bukan sesuatu yang dapat dipesan.
+> Karena itulah pendaftarannya dibuat otomatis: sebuah alamat `trycloudflare.com`
+> tidak pernah pantas ditulis ke berkas konfigurasi mana pun.
+>
+> Untuk alamat yang benar-benar tetap, ada dua jalan:
+>
+> - isi `BOT_PUBLIC_URL` di `.env` dengan domain sendiri atau named tunnel —
+>   nilainya menang dan cloudflared tidak ditanyai sama sekali;
+> - atau pakai service `ngrok` dengan domain statis:
+>   `docker compose --profile tunnel up -d` setelah mengisi `NGROK_AUTHTOKEN`.
+
+**b. Isi kredensial Meta**
+
+`/admin/bot/channels` → **WhatsApp**. Empat yang pertama wajib:
+
+| Kolom | Dari mana | Bila kosong |
+|---|---|---|
+| Access Token | Meta → WhatsApp → API Setup | Bot tidak bisa mengirim balasan |
+| Phone Number ID | Meta → WhatsApp → API Setup | Bot tidak tahu harus mengirim dari nomor mana |
+| Verify Token | **Karangan sendiri**, string bebas | Pendaftaran webhook ditolak **403** |
+| App Secret | Meta → App settings → Basic → *Show* | Setiap pesan masuk ditolak **401** |
+| App ID | Meta → App settings → Basic | **Biasanya tidak perlu** — ditanyakan sendiri ke Meta |
+
+**App ID boleh dikosongkan.** Access token WhatsApp tahu milik aplikasi mana
+dirinya, jadi layanan ini menanyakan App ID-nya langsung kepada Meta
+(`debug_token`) lalu mendaftarkan sendiri alamat webhooknya — persis seperti
+yang dilakukan untuk Telegram. Satu kolom yang tidak perlu diisi adalah satu
+kolom yang tidak dapat salah ketik, dan salah ketiknya di sini hanya terlihat
+sebagai webhook yang tidak pernah terdaftar. Isi kolomnya hanya bila Meta
+menolak pertanyaan itu; lognya akan mengatakannya.
+
+Meta menandatangani setiap pesan masuk dengan App Secret. Tanpa itu layanan ini
+**menolak**, bukan meloloskan — webhook tanpa verifikasi adalah endpoint
+terbuka yang bisa diisi pengaduan palsu oleh siapa saja.
+
+Lalu `docker compose restart bot`: kredensial dibaca **sekali saat start**.
+
+**c. Daftarkan webhooknya di Meta** — hanya bila pendaftaran otomatis gagal
+
+Periksa dulu: `docker compose logs bot | grep WhatsApp`. Bila berbunyi
+`WhatsApp: webhook diarahkan ke …`, tidak ada lagi yang perlu dikerjakan —
+Meta sudah memanggil balik alamat itu dan memverifikasinya. Langkah di bawah
+hanya untuk keadaan ketika lognya berbunyi `App ID tidak diketahui`.
+
+Meta → aplikasimu → WhatsApp → **Configuration** → Webhook → *Edit*:
+
+- **Callback URL**: `https://<alamat-itu>/api/webhook/whatsapp`
+- **Verify Token**: persis sama dengan yang diisi di panel
+- Setelah terverifikasi, **Manage** → langgan bidang **`messages`**
+
+Tanpa langganan `messages`, verifikasi berhasil tetapi tidak ada pesan yang
+pernah dikirimkan.
+
+### 5. Uji tanpa ponsel
+
+`/admin/bot/simulator` menjalankan percakapan lewat mesin yang sama persis
+dengan yang melayani warga, lengkap dengan panel kesiapan konfigurasi. Node yang
+menjawab tertulis di tiap gelembung, jadi balasan yang keliru langsung
+menunjukkan kotak mana yang harus dibuka di editor alur.
+
+Percakapannya sungguhan: pengaduan yang diajukan dari sana benar-benar tercatat
+dan petugas benar-benar dikabari. Ada tombol **Reset** yang membuang percakapan
+uji beserta pengaduan yang lahir darinya.
+
+### 6. Bantuan AI — opsional
+
+Mati secara bawaan, dan tidak pernah menanggung beban: bila model lambat,
+kehabisan kuota, atau kuncinya dicabut, chatbot kembali ke pencarian FAQ, bukan
+berhenti melayani.
+
+`/admin/bot/ai` → pilih penyedia, tempel kunci, tekan **Test**. Groq punya kuota
+gratis; `ollama` berjalan di server sendiri dan tidak memerlukan kunci sama
+sekali.
+
+Tanpa AI, jawaban berupa kutipan entri FAQ yang paling cocok. Dengan AI,
+jawaban disusun sebagai kalimat dari entri yang sama.
+
+### Bila belum berjalan
+
+Log bot adalah tempat pertama yang dilihat, dan biasanya sudah menyebut
+sebabnya:
+
+```bash
+docker compose logs bot --tail=40
+```
+
+| Gejala | Sebab | Perbaikan |
+|---|---|---|
+| Kredensial diisi, tidak ada yang berubah | Dibaca sekali saat start | `docker compose restart bot` |
+| Log bot: `Belum ada token Telegram. Mode drain` | Bot hidup sebelum token diisi | Simpan token, lalu restart bot |
+| Telegram: `HTTP 409: Conflict … other getUpdates` | Ada dua proses menarik bot yang sama | Matikan salah satunya; sering kali proyek lain di mesin yang sama |
+| Membuka URL webhook di browser → `{"status":"ok"…}` | Normal — bukan kegagalan | Untuk uji hidup, pakai `/api/health` |
+| Verifikasi Meta → **403** `Verifikasi gagal` | Verify Token tidak sama persis | Samakan nilai di panel dan di formulir Meta |
+| Pesan masuk → **401** di log | App Secret kosong atau keliru | Isi App Secret, lalu restart bot |
+| Webhook → **502** | Terowongan menunjuk ke tempat yang mati | `docker compose logs cloudflared`, pastikan alamatnya yang terbaru |
+| Semua endpoint → **422** | Alamatnya benar, bot menolak membacanya | Sudah diperbaiki; pastikan kode bot mutakhir |
+| Telegram diam setelah `BOT_MODE=serve` | Polling berhenti pada mode webhook | Sudah diperbaiki: alamatnya didaftarkan sendiri. Periksa `docker compose logs bot \| grep webhook` |
+| Bot diam setelah `down` lalu `up`, dan alamat lama mati | Quick tunnel memberi nama baru | Telegram ikut sendiri; WhatsApp ikut bila App ID diisi, kalau tidak tempel ulang di Meta |
+| Log bot: `Alamat tunnel tidak terbaca` | cloudflared tidak naik, atau metricsnya tidak terjangkau | `docker compose logs cloudflared`; atau isi `BOT_PUBLIC_URL` bila alamatnya memang tetap |
+| Pengaduan masuk, tidak ada yang dikabari | Belum ada petugas pada kategori itu | `/admin/bot/recipients` — daftarnya memperingatkan kategori yang belum terpegang |
+
 ## Peta modul
 
 | Area | URL admin | Catatan |
@@ -51,6 +285,10 @@ Rincian stack ada di [`laradock/README.md`](laradock/README.md).
 | FAQ | `/admin/faq` | Akordeon di situs publik |
 | Media | `/admin/media` | Gambar/video publik, dokumen privat |
 | Menu | `/admin/menus/{admin,public}` | Bertingkat tanpa batas, dari database |
+| Chatbot | `/admin/bot/*` | Kanal, alur percakapan, sumber data, bantuan AI, riwayat |
+| Petugas penerima | `/admin/bot/recipients` | Siapa dikabari untuk kategori apa; memperingatkan kategori tanpa petugas |
+| Coba percakapan | `/admin/bot/simulator` | Menjalankan bot dari panel lewat mesin yang sama dengan aslinya |
+| Pengaduan | `/admin/complaints` | Antrean, peta, lampiran, balasan ke pelapor |
 | Pengaturan | `/admin/settings/*` | Umum, Beranda, Carousel, Sosial, SEO, Aksesibilitas, Footer |
 | Pengguna & akses | `/admin/users`, `/admin/roles`, `/admin/permissions` | Matriks hak akses |
 | Sistem | `/admin/audit-logs` | Jejak audit + pengosongan cache |

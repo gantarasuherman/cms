@@ -133,19 +133,38 @@ class BotEngineTest extends TestCase
         $this->assertStringNotContainsString('Belum ada: foto', $reply);
     }
 
-    public function test_a_category_that_demands_no_evidence_accepts_a_skip(): void
+    public function test_a_category_that_demands_no_evidence_is_never_asked_for_any(): void
     {
         $this->say('halo');
         $this->say('1');
         $this->say('3');  // Pengaduan Lainnya
-        $this->say('Lampu jalan mati di gang tiga sejak pekan lalu.');
 
-        $reply = $this->say('LEWATI');
+        // Laporan terbit langsung dari uraiannya. Keluhan yang tidak punya
+        // wujud — pelayanan lambat, antrean tak jelas — tidak perlu melewati
+        // pertanyaan foto yang satu-satunya jawaban masuk akalnya "lewati".
+        $reply = $this->say('Pelayanan di loket lambat dan tidak ada antrean jelas.');
 
         $complaint = Complaint::firstOrFail();
         $this->assertStringContainsString($complaint->ticket, $reply);
+        $this->assertStringNotContainsString('LEWATI', $reply);
         $this->assertCount(0, $complaint->evidence);
         $this->assertNull($complaint->latitude);
+    }
+
+    public function test_ticking_one_requirement_brings_the_question_back(): void
+    {
+        ComplaintCategory::where('slug', 'lainnya')->update(['requires_photo' => true]);
+
+        $this->say('halo');
+        $this->say('1');
+        $this->say('3');
+
+        // Syaratnya baris data: mencentangnya di panel mengubah percakapan
+        // tanpa ada yang menyentuh alurnya.
+        $reply = $this->say('Lampu jalan mati di gang tiga sejak pekan lalu.');
+
+        $this->assertStringContainsString('foto', mb_strtolower($reply));
+        $this->assertSame(0, Complaint::count());
     }
 
     public function test_evidence_rules_come_from_the_category_row(): void
@@ -161,6 +180,251 @@ class BotEngineTest extends TestCase
 
         $this->assertStringContainsString('Belum ada: foto', $this->say('LEWATI'));
         $this->assertSame(0, Complaint::count());
+    }
+
+    /* ------------------------------------------- jenis yang dipilih warga */
+
+    public function test_the_chosen_kind_is_named_back_before_anything_is_typed(): void
+    {
+        $this->say('halo');
+        $this->say('1');
+
+        $reply = $this->say('3');
+
+        // Salah pencet angka ketahuan di sini, saat membatalkannya masih
+        // murah — bukan setelah laporan tersimpan dengan jenis yang keliru.
+        $this->assertStringContainsString('Pengaduan Lainnya', $reply);
+    }
+
+    public function test_the_requirements_are_stated_before_the_photo_is_asked_for(): void
+    {
+        ComplaintCategory::where('slug', 'lainnya')
+            ->update(['requires_photo' => true, 'requires_location' => true]);
+
+        $this->say('halo');
+        $this->say('1');
+
+        // Disebut SEBELUM uraian diminta: orang yang masih berdiri di depan
+        // jalan rusak dapat memotretnya saat itu juga, sedangkan orang yang
+        // sudah pulang harus kembali ke sana.
+        $this->assertStringContainsString('foto dan titik lokasi', $this->say('3'));
+    }
+
+    public function test_the_requirements_follow_the_ticks_on_that_kind(): void
+    {
+        ComplaintCategory::where('slug', 'lainnya')
+            ->update(['requires_photo' => true, 'requires_location' => false]);
+
+        $this->say('halo');
+        $this->say('1');
+        $reply = $this->say('3');
+
+        // Hanya yang benar-benar diminta. Menyebut titik lokasi pada jenis
+        // yang tidak memerlukannya membuat warga menyiapkan sesuatu yang
+        // tidak akan pernah ditagih.
+        $this->assertStringContainsString('persyaratan: foto', $reply);
+        $this->assertStringNotContainsString('titik lokasi', $reply);
+    }
+
+    public function test_a_kind_that_needs_nothing_says_so_plainly(): void
+    {
+        $this->say('halo');
+        $this->say('1');
+
+        // "Lainnya" bawaan tidak mewajibkan apa pun. Mengosongkan tanda kurung
+        // akan terbaca seperti ada yang gagal dimuat.
+        $this->assertStringContainsString('tidak ada lampiran wajib', $this->say('3'));
+    }
+
+    public function test_a_newly_added_kind_needs_no_change_to_the_flow(): void
+    {
+        ComplaintCategory::create([
+            'name' => 'Drainase Perkotaan', 'slug' => 'drainase-perkotaan',
+            'requires_photo' => true, 'requires_location' => true,
+            'is_active' => true, 'sort_order' => 99,
+        ]);
+
+        $this->say('halo');
+        $this->say('1');
+
+        $last = (string) ComplaintCategory::active()->count();
+        $reply = $this->say($last);
+
+        // Jenis baru cukup ditambahkan di panel: namanya dan syaratnya ikut
+        // muncul tanpa siapa pun menyentuh teks node di editor alur.
+        $this->assertStringContainsString('Drainase Perkotaan', $reply);
+        $this->assertStringContainsString('foto dan titik lokasi', $reply);
+    }
+
+    /* ------------------------------------------------- tanya jawab */
+
+    /** Satu entri FAQ, supaya pertanyaannya benar-benar terjawab. */
+    private function faq(): void
+    {
+        \App\Models\Faq::create([
+            'question' => 'Berapa lama proses izin mendirikan bangunan?',
+            'answer' => 'Proses izin mendirikan bangunan memakan waktu lima hari kerja.',
+            'is_active' => true, 'sort_order' => 10,
+        ]);
+    }
+
+    public function test_one_answer_does_not_end_the_conversation(): void
+    {
+        $this->faq();
+        $this->say('halo');
+        $this->say('4');
+
+        $reply = $this->say('Berapa lama proses izin mendirikan bangunan?');
+
+        // Satu pertanyaan hampir tidak pernah berdiri sendiri: yang bertanya
+        // berapa lama izin terbit biasanya menanyakan biayanya sesudah itu.
+        $this->assertStringContainsString('Ada pertanyaan lagi', $reply);
+        $this->assertStringNotContainsString('Balas *menu* kapan saja untuk memulai lagi', $reply);
+    }
+
+    public function test_a_second_question_is_answered_without_starting_over(): void
+    {
+        $this->faq();
+        $this->say('halo');
+        $this->say('4');
+        $this->say('Berapa lama proses izin mendirikan bangunan?');
+
+        $reply = $this->say('Berapa biaya rekomendasi teknis bangunan gedung?');
+
+        // Tidak dilempar kembali ke menu utama di antara dua pertanyaan —
+        // itulah yang membuat percakapan terasa seperti formulir.
+        $this->assertStringNotContainsString('Silakan pilih dengan membalas angkanya', $reply);
+    }
+
+    public function test_zero_returns_to_the_main_menu(): void
+    {
+        $this->faq();
+        $this->say('halo');
+        $this->say('4');
+        $this->say('Berapa lama proses izin mendirikan bangunan?');
+
+        $reply = $this->say('0');
+
+        // Jalan keluarnya disebutkan di layar itu, jadi ia harus benar-benar
+        // ada. Sebelumnya satu-satunya cara keluar adalah mengetik "menu",
+        // yang tidak pernah diberitahukan di sana.
+        $this->assertStringContainsString('Silakan pilih dengan membalas angkanya', $reply);
+    }
+
+    public function test_zero_is_not_mistaken_for_a_question_too_short(): void
+    {
+        $this->faq();
+        $this->say('halo');
+        $this->say('4');
+        $this->say('Berapa lama proses izin mendirikan bangunan?');
+
+        // Diperiksa sebelum panjangnya dinilai; kalau tidak, "0" ditolak
+        // sebagai pertanyaan yang terlalu singkat dan orangnya terjebak.
+        $this->assertStringNotContainsString('terlalu singkat', $this->say('0'));
+    }
+
+    /* ------------------------------------- pertanyaan yang tak terjawab */
+
+    public function test_an_unanswered_question_hands_over_the_number_for_that_field(): void
+    {
+        ComplaintCategory::where('slug', 'jalan')->update([
+            'contact_name' => 'Bidang Bina Marga',
+            'contact_phone' => '628123456789',
+        ]);
+
+        $this->say('halo');
+        $this->say('4');
+        $this->say('Berapa lebar minimal bahu jalan kabupaten?');
+
+        $reply = $this->say('1');
+
+        // Yang dicari orang yang bertanya biasanya satu keterangan yang selesai
+        // dalam semenit bila ditanyakan kepada orangnya. Sebuah tiket membuatnya
+        // menunggu sehari untuk itu.
+        $this->assertStringContainsString('Silakan hubungi nomor ini', $reply);
+        $this->assertStringContainsString('Bidang Bina Marga', $reply);
+        $this->assertStringContainsString('628123456789', $reply);
+        $this->assertStringContainsString('https://wa.me/628123456789', $reply);
+        // Tidak menjanjikan balasan petugas: pada cabang ini grup tidak
+        // dikabari, dan janji yang tidak akan ditepati lebih buruk daripada
+        // tidak berjanji apa-apa.
+        $this->assertStringNotContainsString('diteruskan kepada petugas', $reply);
+    }
+
+    public function test_the_number_follows_the_field_that_was_chosen(): void
+    {
+        ComplaintCategory::where('slug', 'jalan')->update(['contact_phone' => '628111111111']);
+        ComplaintCategory::where('slug', 'irigasi')->update(['contact_phone' => '628222222222']);
+
+        $this->say('halo');
+        $this->say('4');
+        $this->say('Kapan saluran irigasi dinormalisasi?');
+
+        $reply = $this->say('2');
+
+        // Memilih bidang kedua harus memberi nomor bidang kedua. Kekeliruan di
+        // sini mengirim warga menelepon orang yang tidak mengurusnya.
+        $this->assertStringContainsString('628222222222', $reply);
+        $this->assertStringNotContainsString('628111111111', $reply);
+    }
+
+    public function test_the_question_is_still_recorded_so_it_can_become_an_faq(): void
+    {
+        ComplaintCategory::where('slug', 'jalan')->update(['contact_phone' => '628123456789']);
+
+        $this->say('halo');
+        $this->say('4');
+        $this->say('Berapa lebar minimal bahu jalan kabupaten?');
+        $this->say('1');
+
+        // Pertanyaan yang sama ditanyakan lima puluh orang adalah FAQ yang
+        // belum ditulis. Berhenti mencatatnya memadamkan satu-satunya layar
+        // tempat hal itu terlihat.
+        $complaint = Complaint::firstOrFail();
+        $this->assertSame('jalan', $complaint->category->slug);
+        $this->assertStringContainsString('bahu jalan', $complaint->description);
+    }
+
+    public function test_the_group_is_left_alone_once_the_citizen_has_the_number(): void
+    {
+        ComplaintCategory::where('slug', 'jalan')->update(['contact_phone' => '628123456789']);
+
+        BotRecipient::create([
+            'name' => 'Petugas Jalan', 'channel' => 'whatsapp',
+            'destination' => '628130000001', 'is_active' => true,
+        ]);
+
+        $this->say('halo');
+        $this->say('4');
+        $this->say('Berapa lebar minimal bahu jalan kabupaten?');
+        $this->say('1');
+
+        // Warga sudah dipertemukan dengan orang yang mengurusnya, jadi pesan ke
+        // grup tidak menambah apa pun — dan grup petugas yang berisik adalah
+        // grup yang berhenti dibaca, sehingga laporan sungguhan ikut terlewat.
+        $this->assertSame(0, DB::table('bot_outbox')->count());
+        // Tetap tercatat: itulah yang menyalakan "Pertanyaan terbanyak".
+        $this->assertSame(1, Complaint::count());
+    }
+
+    public function test_a_field_without_a_number_still_records_and_forwards(): void
+    {
+        BotRecipient::create([
+            'name' => 'Petugas Jalan', 'channel' => 'whatsapp',
+            'destination' => '628130000001', 'is_active' => true,
+        ]);
+
+        $this->say('halo');
+        $this->say('4');
+        $this->say('Berapa lebar minimal bahu jalan kabupaten?');
+
+        $reply = $this->say('1');
+
+        // Kolom yang belum diisi tidak boleh berakhir sebagai warga yang tidak
+        // diberi apa-apa. Yang hilang hanya nomornya, bukan seluruh jawabannya.
+        $this->assertStringContainsString('diteruskan kepada petugas', $reply);
+        $this->assertStringNotContainsString('wa.me', $reply);
+        $this->assertSame(1, DB::table('bot_outbox')->count());
     }
 
     public function test_a_description_that_is_too_short_is_refused(): void
@@ -406,6 +670,28 @@ class BotEngineTest extends TestCase
         return $this->say($question);
     }
 
+    /**
+     * Menjawab menu "termasuk bidang apa" dengan kategori yang diminta.
+     *
+     * Nomornya dihitung dari urutan kategori, bukan ditulis tetap: menambah
+     * satu kategori menggeser seluruh nomor sesudahnya, dan tes yang menghafal
+     * angka akan gagal karena alasan yang tidak ada hubungannya dengan apa
+     * yang sedang diuji.
+     */
+    private function chooseTopic(string $slug): string
+    {
+        $categories = ComplaintCategory::where('is_active', true)
+            ->orderBy('sort_order')
+            ->pluck('slug')
+            ->values();
+
+        $position = $categories->search($slug);
+
+        $this->assertNotFalse($position, "Kategori {$slug} tidak ada pada menu.");
+
+        return $this->say((string) ($position + 1));
+    }
+
     public function test_a_question_answered_by_the_faq_gets_that_answer(): void
     {
         \App\Models\Faq::create([
@@ -423,15 +709,19 @@ class BotEngineTest extends TestCase
 
     public function test_a_question_with_no_answer_reaches_a_person(): void
     {
-        $reply = $this->ask('Apakah ada bantuan perbaikan rumah tidak layak huni?');
+        $asked = $this->ask('Apakah ada bantuan perbaikan rumah tidak layak huni?');
+        $this->assertStringContainsString('teruskan kepada petugas', mb_strtolower($asked));
+
+        // Bidangnya ditanyakan dulu, supaya pertanyaan sampai ke petugas yang
+        // mengurusnya — bukan hanya ke pemegang kategori "Pertanyaan".
+        $reply = $this->chooseTopic('lainnya');
 
         $complaint = Complaint::firstOrFail();
 
         // A bot that says "I don't know" and stops wastes whoever asked.
-        $this->assertStringContainsString('teruskan kepada petugas', mb_strtolower($reply));
         $this->assertStringContainsString($complaint->ticket, $reply);
         $this->assertSame('Apakah ada bantuan perbaikan rumah tidak layak huni?', $complaint->description);
-        $this->assertSame('pertanyaan', $complaint->category?->slug);
+        $this->assertSame('lainnya', $complaint->category?->slug);
         $this->assertSame('baru', $complaint->status);
     }
 
@@ -441,15 +731,19 @@ class BotEngineTest extends TestCase
             'name' => 'Layanan Informasi', 'channel' => 'telegram',
             'destination' => '-100999', 'is_active' => true, 'can_command' => true,
         ]);
-        $recipient->categories()->attach(ComplaintCategory::where('slug', 'pertanyaan')->value('id'));
+        $recipient->categories()->attach(ComplaintCategory::where('slug', 'lainnya')->value('id'));
 
         $this->ask('Kapan jadwal pelayanan hari Sabtu dibuka kembali?');
+        $this->chooseTopic('lainnya');
 
         $queued = DB::table('bot_outbox')->get();
 
         $this->assertCount(1, $queued);
         $this->assertSame('-100999', $queued->first()->destination);
-        $this->assertStringContainsString('Pertanyaan', $queued->first()->body);
+
+        // Pertanyaan tidak lagi punya keranjang sendiri: ia masuk ke jenis
+        // yang sama dengan pengaduan, dan sampai ke petugas yang sama.
+        $this->assertStringContainsString('Pengaduan Lainnya', $queued->first()->body);
     }
 
     public function test_the_search_ignores_words_too_short_to_mean_anything(): void
@@ -470,12 +764,13 @@ class BotEngineTest extends TestCase
     public function test_a_question_tracked_by_its_ticket_like_any_other(): void
     {
         $this->ask('Apakah tersedia layanan konsultasi teknis bangunan?');
+        $this->chooseTopic('lainnya');
         $ticket = Complaint::firstOrFail()->ticket;
 
         $this->say('menu');
         $this->say('2');
 
-        $this->assertStringContainsString('Pertanyaan', $this->say($ticket));
+        $this->assertStringContainsString('Pengaduan Lainnya', $this->say($ticket));
     }
 
     /* -------------------------------------------------------- notifikasi */

@@ -21,10 +21,43 @@ class ComplaintCategorySeeder extends Seeder
                 'description' => 'Saluran tersumbat, bocor, atau tidak mengalir.'],
             ['name' => 'Pengaduan Lainnya', 'slug' => 'lainnya', 'icon' => 'megaphone', 'requires_photo' => false, 'requires_location' => false,
                 'description' => 'Hal lain yang perlu ditindaklanjuti.'],
-            // Questions with no published answer land here, so they reach a
-            // person instead of ending at "saya tidak tahu".
-            ['name' => 'Pertanyaan', 'slug' => 'pertanyaan', 'icon' => 'circle-help', 'requires_photo' => false, 'requires_location' => false,
-                'description' => 'Pertanyaan warga yang belum terjawab oleh FAQ.'],
+            /*
+             * Tidak ada kategori "Pertanyaan" tersendiri.
+             *
+             * Jenis-jenis di atas mencakup pertanyaan sekaligus pengaduan:
+             * "kapan jembatan itu diperbaiki" adalah urusan orang yang sama
+             * dengan "jembatan itu rusak". Sebuah keranjang terpisah membuat
+             * pertanyaan tentang irigasi berhenti di petugas yang tidak
+             * mengurus irigasi, dan memaksa warga menebak apakah kalimatnya
+             * terhitung pertanyaan atau pengaduan.
+             */
+
+            /*
+             * Kategori yang ditambahkan belakangan ditulis di bawah sini,
+             * dengan sort_order tegas — bukan disisipkan ke tengah daftar.
+             *
+             * Dua sebabnya, dan keduanya menggigit diam-diam:
+             *
+             * 1. Nomor urut ini adalah angka yang dibalas warga di chat.
+             *    Menyisipkan di tengah membuat "Pengaduan Lainnya" yang
+             *    kemarin dibalas 3 mendadak menjadi 4 — termasuk bagi orang
+             *    yang sedang berada di tengah percakapan.
+             *
+             * 2. sort_order entri lain diturunkan dari posisinya di array ini,
+             *    sedangkan firstOrCreate tidak memperbarui baris yang sudah
+             *    ada. Menyisipkan di tengah karena itu menggeser nomor pada
+             *    pemasangan baru, tetapi tidak pada pemasangan lama — dua
+             *    urutan berbeda dari satu berkas yang sama.
+             */
+            ['name' => 'Jembatan', 'slug' => 'jembatan', 'icon' => 'layers', 'requires_photo' => true, 'requires_location' => true,
+                'sort_order' => 35,
+                'description' => 'Jembatan rusak, lapuk, atau tidak aman dilalui.'],
+            ['name' => 'Drainase', 'slug' => 'drainase', 'icon' => 'workflow', 'requires_photo' => true, 'requires_location' => true,
+                'sort_order' => 36,
+                'description' => 'Saluran air kota tersumbat, meluap, atau rusak.'],
+            ['name' => 'Bangunan', 'slug' => 'bangunan', 'icon' => 'building-2', 'requires_photo' => true, 'requires_location' => true,
+                'sort_order' => 37,
+                'description' => 'Bangunan gedung milik daerah yang rusak atau tidak aman.'],
         ];
 
         foreach ($categories as $index => $category) {

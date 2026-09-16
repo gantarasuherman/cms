@@ -37,6 +37,7 @@ class ActionNodeHandler implements NodeHandler
     {
         return match ($node->setting('action')) {
             'create_complaint' => $this->createComplaint($node, $conversation),
+            'share_contact' => $this->shareContact($node, $conversation),
             'lookup_complaint' => $this->lookupComplaint($node, $conversation),
             'notify_officers' => $this->notifyOnly($node, $conversation),
             'answer_question' => $this->answerQuestion($node, $conversation),
@@ -65,6 +66,51 @@ class ActionNodeHandler implements NodeHandler
 
         return NodeResult::next('valid', [OutgoingMessage::text(
             $this->renderer->render($node->setting('success_message'), $this->values($complaint)),
+            $node->key,
+        )], ['ticket' => $complaint->ticket]);
+    }
+
+    /**
+     * Memberi warga nomor bidang yang bersangkutan.
+     *
+     * Pertanyaannya SELALU dicatat, sehingga ada di panel seperti laporan
+     * lain. Itu pula yang menyalakan "Pertanyaan terbanyak" dan tombol
+     * "Jadikan FAQ" — pertanyaan yang sama ditanyakan lima puluh orang adalah
+     * FAQ yang belum ditulis, dan berhenti mencatatnya memadamkan satu-satunya
+     * layar tempat hal itu terlihat.
+     *
+     * Yang bersyarat hanyalah pemberitahuan ke grup petugas:
+     *
+     *   bidang punya nomor  → warga diberi nomornya, grup TIDAK dikabari
+     *   bidang tanpa nomor  → grup dikabari, warga diberi tahu akan dijawab
+     *
+     * Sebab begitu warga dipertemukan dengan orang yang mengurusnya, pesan ke
+     * grup tidak menambah apa pun — dan grup petugas yang berisik adalah grup
+     * yang berhenti dibaca, sehingga laporan sungguhan ikut terlewat. Untuk
+     * pertanyaan, bukan laporan, menunggu memang jawaban yang buruk: yang
+     * dicari orang biasanya satu keterangan yang selesai dalam semenit bila
+     * ditanyakan langsung.
+     *
+     * Cabang kedua menjaga agar kolom yang belum diisi tidak pernah berakhir
+     * sebagai warga yang tidak diberi apa-apa.
+     */
+    private function shareContact(BotNode $node, BotConversation $conversation): NodeResult
+    {
+        $complaint = $this->filer->file($conversation, $node->setting('category_slug'));
+
+        if (! $complaint) {
+            return $this->failed($node, 'Pertanyaan belum dapat dicatat.');
+        }
+
+        if ($complaint->category?->hasContact()) {
+            $message = $node->setting('success_message');
+        } else {
+            $this->notifier->notify($complaint);
+            $message = $node->setting('fallback_message') ?: $node->setting('success_message');
+        }
+
+        return NodeResult::next('valid', [OutgoingMessage::text(
+            $this->renderer->render($message, $this->values($complaint)),
             $node->key,
         )], ['ticket' => $complaint->ticket]);
     }
@@ -231,6 +277,10 @@ class ActionNodeHandler implements NodeHandler
             'status' => $complaint->statusLabel(),
             'created_at' => $complaint->created_at?->translatedFormat('d M Y H:i') ?? '',
             'latest_update' => $latest?->note ?? 'Belum ada perkembangan.',
+            // Kosong bila bidangnya belum diisi nomor. Node yang memakainya
+            // punya fallback_message sendiri untuk keadaan itu, jadi tidak ada
+            // pesan yang berakhir dengan baris menggantung.
+            'contact' => $complaint->category?->contactLine() ?? '',
         ];
     }
 

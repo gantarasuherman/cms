@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Public\DocumentController;
 use App\Http\Controllers\Public\DocumentDownloadController;
+use App\Http\Controllers\Public\EvidenceController;
 use App\Http\Controllers\Public\FaqController;
 use App\Http\Controllers\Public\HomeController;
 use App\Http\Controllers\Public\NewsController;
@@ -34,6 +35,18 @@ Route::name('public.')->group(function () {
         ->middleware('throttle:downloads')
         ->name('documents.download');
     Route::get('dokumen/{slug}', [DocumentController::class, 'show'])->name('documents.show');
+
+    /*
+     | Foto bukti pengaduan, untuk instansi tujuan penerusan.
+     |
+     | Publik hanya dalam arti tidak memerlukan login — alamatnya wajib
+     | bertanda tangan dan kedaluwarsa, sehingga hanya berlaku bagi penerima
+     | yang memang dikirimi tautannya. Tanpa ini, foto tidak dapat ikut pada
+     | penerusan lewat `wa.me`, yang hanya mampu membawa teks.
+     */
+    Route::get('pengaduan/bukti/{attachment}', EvidenceController::class)
+        ->middleware(['signed', 'throttle:downloads'])
+        ->name('evidence.show');
 
     Route::get('faq', FaqController::class)->name('faq.index');
 

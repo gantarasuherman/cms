@@ -17,6 +17,16 @@ class Complaint extends Model
         'baru' => 'Baru',
         'diproses' => 'Sedang Diproses',
         'selesai' => 'Selesai',
+        // Bukan "selesai": laporannya sah, tetapi yang berwenang menanganinya
+        // bukan dinas ini. Menandainya selesai membuat laporan yang belum
+        // tentu dikerjakan siapa pun hilang dari pandangan.
+        //
+        // Kuncinya tetap "diteruskan" karena begitulah ia sudah tersimpan;
+        // yang berubah hanya kata yang dibaca orang. "Diteruskan" menjanjikan
+        // sesuatu yang tidak dikerjakan dinas ini — bot tidak pernah
+        // menghubungi instansi tujuan, ia hanya memberi tahu warga ke mana
+        // harus menghubungi.
+        'diteruskan' => 'Bukan Kewenangan Dinas',
         'ditolak' => 'Ditolak',
     ];
 
@@ -59,6 +69,11 @@ class Complaint extends Model
     public function attachments(): HasMany
     {
         return $this->hasMany(ComplaintAttachment::class);
+    }
+
+    public function dispositions(): HasMany
+    {
+        return $this->hasMany(ComplaintDisposition::class);
     }
 
     public function updates(): HasMany

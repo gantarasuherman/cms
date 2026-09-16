@@ -21,9 +21,10 @@ use App\Services\Bot\TemplateRenderer;
  * holding is the whole difference between this feeling like a conversation and
  * feeling like a search box with extra steps.
  *
- * Three ways out, all of them deliberate:
+ * Four ways out, all of them deliberate:
  *
- *  - the person says they are done        → `valid`, on to the closing node
+ *  - the person replies 0                  → `back`, to the main menu
+ *  - the person says they are done         → `valid`, on to the closing node
  *  - the model cannot answer from the site → `invalid`, so the flow can hand
  *                                            the question to a person
  *  - the turn limit is reached             → `exhausted`
@@ -72,6 +73,13 @@ class AiNodeHandler implements NodeHandler
             )]);
         }
 
+        // Nol mengembalikan ke menu utama, persis seperti yang dijanjikan
+        // footer menu itu sendiri. Tanpa ini satu-satunya jalan keluar adalah
+        // mengetik "menu", yang tidak pernah disebutkan di layar ini.
+        if (trim($question) === '0') {
+            return NodeResult::next('back');
+        }
+
         // Said they are finished — but only when that is the whole message.
         // "tidak ada biaya?" is a question, not a goodbye.
         if ($this->saidDone($question)) {
@@ -112,7 +120,7 @@ class AiNodeHandler implements NodeHandler
 
         // Holds its turn: the node stays where it is, ready for a follow-up.
         return NodeResult::ask(
-            [OutgoingMessage::text($reply."\n\n_Masih ada yang ingin ditanyakan? Balas *selesai* bila sudah._", $node->key)],
+            [OutgoingMessage::text($reply."\n\n_Ada pertanyaan lagi? Silakan tulis. Balas *0* untuk kembali ke menu utama._", $node->key)],
             ['_ai.'.$node->key => ['turns' => $turns, 'history' => $history]],
         );
     }

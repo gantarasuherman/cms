@@ -40,12 +40,29 @@ class BotRecipient extends Model
         return $query->where('is_active', true);
     }
 
-    /** Recipients who asked to hear about this category. */
+    /**
+     * Recipients who asked to hear about this category.
+     *
+     * Tidak mencentang satu kategori pun berarti memegang semuanya — petugas
+     * piket, dan itu pula yang dikatakan formulirnya.
+     *
+     * Sebelumnya baris tanpa kategori tidak pernah cocok dengan apa pun,
+     * sementara CommandHandler::covers() sudah memperlakukannya sebagai
+     * "semua". Akibatnya sebuah grup petugas boleh menutup pengaduan apa saja
+     * tetapi tidak pernah dikabari satu pun — terdaftar, aktif, dan diam.
+     * Tidak ada yang terlihat salah di layar mana pun.
+     */
     public function scopeForCategory(Builder $query, ?int $categoryId): Builder
     {
         return $query->active()->when(
             $categoryId,
-            fn (Builder $q) => $q->whereHas('categories', fn (Builder $c) => $c->whereKey($categoryId)),
+            // Dikurung. Tanpa kurung, `is_active AND punya-kategori OR
+            // tanpa-kategori` dibaca SQL sebagai `(is_active AND
+            // punya-kategori) OR (tanpa-kategori)` — dan petugas yang sudah
+            // dinonaktifkan ikut dikabari lagi.
+            fn (Builder $q) => $q->where(fn (Builder $group) => $group
+                ->whereHas('categories', fn (Builder $c) => $c->whereKey($categoryId))
+                ->orWhereDoesntHave('categories')),
         );
     }
 

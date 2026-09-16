@@ -17,6 +17,65 @@
         </div>
     </section>
 
+    @if ($complaints)
+        <section aria-labelledby="complaints-heading" class="mt-8">
+            <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h2 id="complaints-heading" class="text-base font-semibold text-foreground">Pengaduan</h2>
+                    <p class="mt-0.5 text-sm text-muted-foreground">
+                        Laporan warga yang masuk lewat WhatsApp dan Telegram dalam {{ $complaintDays }} hari terakhir.
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                    <x-ui.button :href="route('admin.complaints.index')" variant="secondary" icon="clipboard-list">
+                        Daftar Pengaduan
+                    </x-ui.button>
+                    <x-ui.button :href="route('admin.complaints.map')" variant="secondary" icon="map-pin">
+                        Peta Pengaduan
+                    </x-ui.button>
+                </div>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                <x-ui.stat-tile label="Masuk" :value="$complaints['total']" icon="clipboard-list"
+                                caption="Seluruh laporan {{ $complaintDays }} hari terakhir" />
+
+                <x-ui.stat-tile label="Belum ditangani"
+                                :value="$complaints['byStatus']['baru'] + $complaints['byStatus']['diproses']"
+                                icon="circle-alert"
+                                caption="Masih baru atau sedang diproses" />
+
+                <x-ui.stat-tile label="Selesai" :value="$complaints['byStatus']['selesai']" icon="circle-check"
+                                caption="Ditandai sudah ditangani" />
+
+                {{-- Angka ini ada di dasbor, bukan hanya di layar pengaduan,
+                     karena ia menjawab pertanyaan pimpinan dan bukan pertanyaan
+                     petugas: seberapa banyak laporan yang sampai ke sini
+                     sebenarnya bukan pekerjaan dinas ini. Naik terus berarti
+                     warga belum tahu harus melapor ke mana. --}}
+                <x-ui.stat-tile label="Bukan kewenangan" :value="$complaints['byStatus']['diteruskan']"
+                                icon="building-2"
+                                caption="Warga diarahkan ke instansi lain" />
+
+                <x-ui.stat-tile label="Ditolak" :value="$complaints['byStatus']['ditolak']" icon="circle-slash"
+                                caption="Tidak dapat ditindaklanjuti" />
+            </div>
+
+            @if ($complaints['total'] > 0 && ($complaints['busiest']['value'] ?? 0) > 0)
+                <p class="mt-3 text-sm text-muted-foreground">
+                    Paling banyak diadukan: <strong class="text-foreground">{{ $complaints['busiest']['label'] }}</strong>
+                    ({{ $complaints['busiest']['value'] }}).
+                    {{ $complaints['answered'] }} dari {{ $complaints['total'] }} laporan sudah dibalas kepada pelapornya.
+                </p>
+            @elseif ($complaints['total'] === 0)
+                <p class="mt-3 text-sm text-muted-foreground">
+                    Belum ada pengaduan masuk dalam {{ $complaintDays }} hari terakhir.
+                </p>
+            @endif
+        </section>
+    @endif
+
     <section aria-labelledby="visitors-heading" class="mt-8">
         <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>

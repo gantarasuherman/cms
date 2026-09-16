@@ -106,6 +106,129 @@ services:
     networks:
       - cms
 
+  # Penjadwal Laravel: visitors:prune tiap 03:17 dan social:sync tiap jam.
+  # Tanpa service ini keduanya tidak pernah berjalan — tabel kunjungan tumbuh
+  # tanpa batas dan angka media sosial berhenti di nilai terakhir.
+  scheduler:
+    build:
+      context: ./workspace
+      args:
+        PHP_VERSION: ${PHP_VERSION}
+        NODE_VERSION: ${NODE_VERSION}
+    volumes:
+      - ${APPLICATION}:/var/www
+    working_dir: /var/www
+    command: php artisan schedule:work
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - cms
+
+  # Jembatan WhatsApp/Telegram. Tidak memutuskan apa pun sendiri: pesan masuk
+  # diteruskan ke API internal Laravel, balasannya dikirim kembali. Asisten AI
+  # bukan service tersendiri — ia berjalan di dalam Laravel (config/ai.php),
+  # jadi php-fpm dan queue di atas sudah menanggungnya.
+  bot:
+    build:
+      # Root project, bukan ./bot, supaya Dockerfile dapat menyalin
+      # bot/requirements.txt alih-alih menyalin ulang daftar versinya.
+      context: ${APPLICATION}
+      dockerfile: laradock/bot/Dockerfile
+    volumes:
+      - ${APPLICATION}:/var/www
+    # Token internal dan kredensial saluran dibaca dari .env aplikasi yang itu
+    # juga, bukan disalin ke laradock/.env: dua salinan rahasia yang sama
+    # adalah dua nilai yang cepat atau lambat berbeda.
+    env_file:
+      - ${APPLICATION}/.env
+    environment:
+      # Menang atas env_file. Di dalam jaringan Docker yang berlaku nama
+      # service dan port aslinya, bukan port host.
+      LARAVEL_URL: http://nginx
+      # Harus disk privat Laravel yang sama persis, kalau tidak foto pengaduan
+      # yang diunduh bot menjadi tautan rusak di panel admin.
+      BOT_MEDIA_ROOT: /var/www/storage/app/private
+      BOT_MODE: ${BOT_MODE}
+      BOT_PORT: 8020
+      # Ke sinilah bot menanyakan alamat publiknya sendiri. Sengaja TIDAK
+      # depends_on cloudflared — arahnya justru sebaliknya, dan bot sudah
+      # menunggu dengan sabar sampai tunnelnya naik.
+      #
+      # BOT_PUBLIC_URL tidak diisi di sini, melainkan di .env aplikasi: bila
+      # alamatnya memang tetap, nilai itu menang dan tunnel tidak ditanyai.
+      CLOUDFLARED_METRICS: http://cloudflared:20241
+      # Dipakai hanya bila profil `tunnel` dinyalakan. Bila ngrok tidak ada,
+      # nama ini tidak terpecahkan di jaringan Docker dan gagal seketika —
+      # itulah sebabnya ia aman dicantumkan selalu.
+      NGROK_API: http://ngrok:4040
+    ports:
+      # Hanya terpakai pada BOT_MODE=serve (webhook). Meta wajib webhook dan
+      # tidak menyediakan polling, jadi WhatsApp memerlukan mode itu di balik
+      # HTTPS publik; dari localhost ia butuh tunnel.
+      - "${BOT_HOST_PORT}:8020"
+    restart: unless-stopped
+    depends_on:
+      - nginx
+    networks:
+      - cms
+
+  # Terowongan HTTPS publik ke service bot, tanpa akun dan tanpa kredensial.
+  #
+  # WhatsApp hanya bisa webhook: Meta harus dapat menghubungi bot, dan alamat
+  # localhost tidak dapat dijangkau dari luar. Cloudflare quick tunnel dipilih
+  # sebagai bawaan karena tidak memerlukan token apa pun, sehingga stack ini
+  # dapat menerima webhook pada mesin mana pun tanpa menyiapkan akun lebih
+  # dahulu — dan tidak berebut domain dengan tunnel project lain di mesin ini.
+  #
+  # Harganya: alamatnya acak dan BERUBAH setiap container dibuat ulang. Itu
+  # sebabnya port metrics dipatok di bawah — service bot menanyakan alamat
+  # barunya ke sana setiap kali naik, lalu mendaftarkannya sendiri ke Telegram
+  # dan Meta. Tanpa itu, setiap `docker compose up` diam-diam memutus bot dari
+  # kedua platform: semuanya tampak menyala, dan tidak satu pun pesan masuk.
+  #
+  # Untuk alamat yang benar-benar tetap, pakai service `ngrok` di bawah (profil
+  # `tunnel`) dengan domain sendiri, atau isi BOT_PUBLIC_URL di .env.
+  #
+  # Alamatnya juga dapat dibaca langsung:  docker compose logs bot | grep publik
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    # Port metrics dipatok, bukan dibiarkan acak seperti bawaannya: alamat yang
+    # harus ditanyakan service lain tidak boleh berpindah sendiri.
+    command: tunnel --no-autoupdate --metrics 0.0.0.0:20241 --url http://bot:8020
+    depends_on:
+      - bot
+    restart: unless-stopped
+    networks:
+      - cms
+
+  # Sengaja TIDAK ikut `docker compose up` biasa, meski itu yang diminta.
+  #
+  # Domain zebraic-lauralee-agrological.ngrok-free.dev sudah dipakai container
+  # ngrok milik project lain di mesin ini (D:\APLIKASI SAYA\pupr), yang
+  # menerowongkannya ke nginx project tersebut — dan project itulah yang punya
+  # rute /api/webhook/whatsapp. Menyalakan tunnel kedua ke domain yang sama
+  # akan merebut alamat itu dari sana, diam-diam, setiap kali stack ini naik.
+  #
+  # Jalankan hanya bila memang project ini yang dikehendaki memegang alamat itu:
+  #   docker compose --profile tunnel up -d
+  ngrok:
+    profiles: ["tunnel"]
+    image: ngrok/ngrok:latest
+    command: http bot:8020 --domain=${NGROK_DOMAIN} --log=stdout
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    ports:
+      # Antarmuka inspeksi ngrok: daftar permintaan masuk beserta body-nya.
+      # Satu-satunya tempat melihat apa yang benar-benar dikirim Meta.
+      - "${NGROK_INSPECT_PORT}:4040"
+    depends_on:
+      - bot
+    restart: unless-stopped
+    networks:
+      - cms
+
   # Antarmuka basis data. Bukan bagian stack dasar — jalankan saat dibutuhkan:
   #   docker compose --profile tools up -d
   phpmyadmin:

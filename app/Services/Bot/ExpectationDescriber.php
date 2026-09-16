@@ -31,6 +31,32 @@ class ExpectationDescriber
     }
 
     /**
+     * Syarat lampiran jenis pengaduan yang sedang dipilih, sebagai frasa.
+     *
+     * Dipakai sebagai isi `{requirements}` pada pertanyaan berikutnya, supaya
+     * warga tahu apa yang harus disiapkan SEBELUM diminta — bukan setelah
+     * mengetik uraian panjang lalu baru ditagih foto. Orang yang sedang berdiri
+     * di depan jalan rusak dapat memotretnya saat itu juga; orang yang sudah
+     * pulang harus kembali.
+     *
+     * Urutannya mengikuti evidenceRequired(), yang selalu foto lebih dulu.
+     */
+    public function requirements(BotConversation $conversation): string
+    {
+        $required = ComplaintCategory::find($conversation->answer('category_id'))?->evidenceRequired() ?? [];
+
+        return match ($required) {
+            ['image', 'location'] => 'foto dan titik lokasi',
+            ['image'] => 'foto',
+            ['location'] => 'titik lokasi',
+            // Bukan sekadar "tidak ada": yang ditanyakan warga adalah apa yang
+            // harus disiapkan, dan kalimat ini harus tetap terbaca benar di
+            // dalam tanda kurung "(persyaratan: …)" pada pertanyaan berikutnya.
+            default => 'tidak ada lampiran wajib',
+        };
+    }
+
+    /**
      * Names what arrived, when it is plainly not what was asked for.
      *
      * Returns null when the reply was at least the right kind of thing and only

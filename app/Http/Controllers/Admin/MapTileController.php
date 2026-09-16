@@ -60,14 +60,45 @@ class MapTileController extends Controller
                 ]);
             }
 
-            $disk->put($path, $bytes);
+            // Gagal menyimpan bukan alasan untuk membuang petak yang sudah
+            // berhasil diambil.
+            //
+            // Sebelumnya `put()` yang melempar UnableToCreateDirectory — izin
+            // tulis yang keliru pada storage — menjatuhkan seluruh permintaan,
+            // dan petanya tampil kosong dengan titik-titik mengambang di atas
+            // latar abu-abu. Petaknya ada di tangan; yang gagal hanya
+            // menyimpannya untuk lain kali.
+            try {
+                $disk->put($path, $bytes);
+            } catch (\Throwable $e) {
+                Log::warning('Petak peta tidak dapat disimpan; disajikan tanpa cache.', [
+                    'path' => $path,
+                    'message' => $e->getMessage(),
+                ]);
+
+                return $this->image($bytes);
+            }
         }
 
-        return response($disk->get($path), 200, [
+        return $this->image($disk->get($path));
+    }
+
+    /**
+     * Satu petak beserta aturan singgahnya.
+     *
+     * ETag-nya jalur petak itu sendiri: sebuah petak pada z/x/y yang sama
+     * tidak pernah berubah isinya, jadi peramban yang sudah memilikinya cukup
+     * menerima 304 dan tidak mengunduh apa pun. Inilah yang membuat menggeser
+     * peta bolak-balik hampir tidak berbiaya.
+     */
+    private function image(string $bytes): Response
+    {
+        return response($bytes, 200, [
             'Content-Type' => 'image/png',
             // Long, because a tile at a given z/x/y never changes meaningfully
             // and this is what keeps the server's own fetch count down.
-            'Cache-Control' => 'private, max-age=604800',
+            'Cache-Control' => 'private, max-age=604800, immutable',
+            'ETag' => '"'.md5($bytes).'"',
         ]);
     }
 

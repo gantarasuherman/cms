@@ -30,19 +30,40 @@
             </select>
         </div>
 
+        {{-- Rentang tanggal untuk melihat penumpukan pada satu musim: titik
+             yang sama dilaporkan sepanjang musim hujan menceritakan hal yang
+             berbeda dari titik yang dilaporkan sekali tahun lalu. --}}
         <div>
-            <label for="f-radius" class="mb-1.5 block text-xs font-medium text-muted-foreground">Jarak satu lokasi</label>
-            <select id="f-radius" name="radius" class="h-10 rounded-lg border border-input bg-background px-3 text-sm">
-                @foreach ([100 => '100 meter', 250 => '250 meter', 500 => '500 meter', 1000 => '1 kilometer'] as $value => $label)
-                    <option value="{{ $value }}" @selected($radius === $value)>{{ $label }}</option>
-                @endforeach
-            </select>
+            <label for="f-dari" class="mb-1.5 block text-xs font-medium text-muted-foreground">Dari tanggal</label>
+            <input type="date" id="f-dari" name="dari" value="{{ $since?->format('Y-m-d') }}"
+                   class="h-10 rounded-lg border border-input bg-background px-3 text-sm">
+        </div>
+
+        <div>
+            <label for="f-sampai" class="mb-1.5 block text-xs font-medium text-muted-foreground">Sampai tanggal</label>
+            <input type="date" id="f-sampai" name="sampai" value="{{ $until?->format('Y-m-d') }}"
+                   class="h-10 rounded-lg border border-input bg-background px-3 text-sm">
         </div>
 
         <x-ui.button type="submit" icon="filter">Terapkan</x-ui.button>
+
+        @if (request()->hasAny(['status', 'kategori', 'dari', 'sampai']))
+            <x-ui.button :href="route('admin.complaints.map')" variant="secondary" icon="x">Bersihkan</x-ui.button>
+        @endif
     </form>
 
-    <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <p class="-mt-2 mb-6 text-sm text-muted-foreground">
+        @if ($since || $until)
+            Menampilkan pengaduan
+            @if ($since) sejak <strong class="text-foreground">{{ $since->translatedFormat('d F Y') }}</strong> @endif
+            @if ($until) sampai <strong class="text-foreground">{{ $until->translatedFormat('d F Y') }}</strong> @endif
+            — {{ $located }} titik dari {{ $total }} pengaduan seluruhnya.
+        @else
+            Menampilkan seluruh pengaduan yang punya titik lokasi: {{ $located }} dari {{ $total }}.
+        @endif
+    </p>
+
+    <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <x-ui.card class="!p-4">
             <p class="text-sm text-muted-foreground">Titik berulang</p>
             <p class="mt-1 text-2xl font-bold tabular-nums">{{ $clusters->filter(fn ($c) => $c->count() > 1)->count() }}</p>
@@ -60,9 +81,19 @@
             <p class="text-sm text-muted-foreground">Belum selesai di titik berulang</p>
             <p class="mt-1 text-2xl font-bold tabular-nums">{{ $clusters->filter(fn ($c) => $c->count() > 1)->sum(fn ($c) => $c->open()) }}</p>
         </x-ui.card>
+
+        {{-- Berguna justru di peta: titik-titik yang bukan kewenangan dinas ini
+             biasanya menumpuk di satu ruas — jalan nasional, saluran milik
+             provinsi — dan penumpukan itu baru terlihat setelah dipetakan.
+             Saring statusnya untuk melihat hanya titik-titik itu. --}}
+        <x-ui.card class="!p-4">
+            <p class="text-sm text-muted-foreground">Bukan kewenangan dinas</p>
+            <p class="mt-1 text-2xl font-bold tabular-nums">{{ $redirected }}</p>
+            <p class="mt-0.5 text-xs text-muted-foreground">dari {{ $located }} titik yang tampil</p>
+        </x-ui.card>
     </div>
 
-    @if ($markers->isNotEmpty())
+    @if ($points->isNotEmpty())
         <x-ui.card title="Sebaran titik pengaduan" class="mb-6">
             {{-- Leaflet, bundled from node_modules, drawing tiles that this
                  application fetched and cached. The map pans and zooms like
@@ -80,9 +111,15 @@
                 // template's {z}/{x}/{y} are Leaflet's placeholders, and Blade
                 // reads those braces as its own.
                 $payload = [
-                    'clusters' => $markers,
+                    'points' => $points,
                     'tiles' => url('admin/peta/petak').'/{z}/{x}/{y}',
                     'attribution' => '&copy; Kontributor OpenStreetMap',
+                    // Alamatnya, bukan isinya: batas wilayah berukuran ratusan
+                    // kilobyte dan tidak pernah berubah, jadi peramban cukup
+                    // mengunduhnya sekali lalu menyinggahkannya — menempelkannya
+                    // ke HTML berarti mengirim ulang pada setiap penyaringan.
+                    'boundary' => $boundary,
+                    'boundaryPadding' => config('complaints.boundary_padding'),
                 ];
             @endphp
 
@@ -91,10 +128,29 @@
                  markup on the way in. --}}
             <script type="application/json" id="peta-pengaduan">{!! json_encode($payload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
 
+            {{-- Legenda, bukan sekadar warna.
+                 Warna saja tidak dapat diandalkan membedakan lebih dari empat
+                 jenis — bahkan bagi mata yang membedakan warna — jadi setiap
+                 pin juga membawa ikon jenisnya, dan popup menyebut namanya. --}}
+            <ul class="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-3">
+                @foreach ($legend as $entry)
+                    <li class="flex items-center gap-2 text-sm">
+                        <span class="grid h-5 w-5 shrink-0 place-items-center rounded-full text-white ring-2 ring-background"
+                              style="background: {{ $entry['color'] }}">
+                            @if ($entry['icon'])
+                                <x-icon :name="$entry['icon']" class="h-3 w-3" />
+                            @endif
+                        </span>
+                        {{ $entry['name'] }}
+                    </li>
+                @endforeach
+            </ul>
+
             <p class="mt-3 text-sm text-muted-foreground">
-                Angka di dalam lingkaran adalah jumlah aduan di titik itu; warnanya mengikuti peringkat,
-                merah untuk yang terbanyak. Klik lingkaran untuk melihat daftar tiketnya. Gulir untuk
-                memperbesar aktif setelah peta diklik, agar peta tidak menelan guliran halaman.
+                Titik yang berdekatan digabung menjadi satu lingkaran berangka; perbesar peta untuk
+                memisahkannya kembali. Warna dan ikon menunjukkan jenis pengaduannya. Klik sebuah titik
+                untuk melihat tiketnya. Gulir untuk memperbesar aktif setelah peta diklik, agar peta
+                tidak menelan guliran halaman.
             </p>
         </x-ui.card>
     @endif

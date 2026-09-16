@@ -54,11 +54,14 @@ class BotFlowSeeder extends Seeder
         $this->seedDataSources();
         $this->seedChannels($flow);
 
-        // Questions with no published answer are filed under this category.
-        \App\Models\ComplaintCategory::firstOrCreate(['slug' => 'pertanyaan'], [
-            'name' => 'Pertanyaan', 'icon' => 'circle-help', 'sort_order' => 40, 'is_active' => true,
-            'description' => 'Pertanyaan warga yang belum terjawab oleh FAQ.',
-        ]);
+        // Tidak ada lagi kategori "Pertanyaan" tersendiri di sini.
+        //
+        // Dulu setiap pertanyaan tanpa jawaban FAQ jatuh ke satu keranjang
+        // bernama "Pertanyaan", sehingga hanya petugas yang memegang keranjang
+        // itu yang dikabari — pertanyaan tentang irigasi pun tidak pernah
+        // sampai ke petugas irigasi. Sejak node `topik_pertanyaan` menanyakan
+        // bidangnya lebih dulu, pertanyaan masuk ke jenis yang sama dengan
+        // pengaduan, dan sampai ke orang yang sama.
 
         $this->command?->info(sprintf(
             'Alur "%s": %d node, %d sambungan.',
@@ -104,7 +107,19 @@ class BotFlowSeeder extends Seeder
 
             ['key' => 'isi_aduan', 'type' => BotNodes::INPUT, 'label' => 'Uraian Aduan', 'position_x' => 780, 'position_y' => 100,
                 'config' => [
-                    'text' => "Ceritakan keluhannya secara singkat.\n\nContoh: Jalan berlubang di depan Balai Desa Sukamaju, sudah dua minggu.",
+                    // Menyebut kembali jenis yang dipilih beserta syaratnya.
+                    //
+                    // Dua hal sekaligus: salah pencet angka ketahuan di sini,
+                    // saat membatalkannya masih murah — bukan setelah laporan
+                    // tersimpan dengan jenis yang keliru. Dan syaratnya
+                    // disebutkan SEBELUM foto diminta, sebab orang yang masih
+                    // berdiri di depan jalan rusak dapat memotretnya saat itu
+                    // juga, sedangkan orang yang sudah pulang harus kembali.
+                    //
+                    // {category} berasal dari jawaban menu jenis pengaduan;
+                    // {requirements} dari centang foto/lokasi pada jenis itu,
+                    // jadi menambah jenis baru tidak perlu menyentuh teks ini.
+                    'text' => "Pengaduan yang Anda pilih: *{category}*\n(persyaratan: {requirements})\n\nCeritakan keluhannya secara singkat.\n\nContoh: Jalan berlubang di depan Balai Desa Sukamaju, sudah dua minggu.",
                     'input' => 'text',
                     'store_as' => 'description',
                     'min_length' => 10,
@@ -178,6 +193,11 @@ class BotFlowSeeder extends Seeder
                         ['value' => '1', 'label' => 'Berita Terbaru'],
                         ['value' => '2', 'label' => 'Layanan'],
                         ['value' => '3', 'label' => 'Dokumen'],
+                        // Ditambahkan di nomor berikutnya yang kosong, bukan
+                        // disisipkan: nomor ini yang dibalas warga, dan
+                        // menggesernya mengubah arti balasan orang yang sedang
+                        // berada di tengah percakapan.
+                        ['value' => '4', 'label' => 'Jenis Pengaduan'],
                     ],
                     'include_back' => true,
                     'on_invalid' => 'repeat',
@@ -191,6 +211,13 @@ class BotFlowSeeder extends Seeder
 
             ['key' => 'daftar_dokumen', 'type' => BotNodes::DATA_SOURCE, 'label' => 'Daftar Dokumen', 'position_x' => 780, 'position_y' => 680,
                 'config' => ['data_source' => 'dokumen', 'on_invalid' => 'repeat']],
+
+            // Menjawab "apa saja yang bisa diadukan, dan apa yang perlu
+            // disiapkan" tanpa memaksa orang masuk ke alur pengaduan dulu.
+            // Isinya dibaca dari tabel jenis pengaduan, jadi mencentang syarat
+            // bukti di panel langsung mengubah apa yang dibacakan di sini.
+            ['key' => 'daftar_jenis_pengaduan', 'type' => BotNodes::DATA_SOURCE, 'label' => 'Jenis Pengaduan', 'position_x' => 780, 'position_y' => 800,
+                'config' => ['data_source' => 'jenis-pengaduan', 'on_invalid' => 'repeat']],
 
             /* ------------------------------------------------------ tanya jawab */
 
@@ -225,15 +252,69 @@ class BotFlowSeeder extends Seeder
                     'not_found_message' => "Pertanyaan Anda belum ada jawabannya di sini.\n\nAkan kami teruskan kepada petugas, dan jawabannya dikirimkan melalui percakapan ini.",
                 ]],
 
-            // Not found is not a dead end: the question becomes something a
-            // person will read and answer.
-            ['key' => 'teruskan_pertanyaan', 'type' => BotNodes::ACTION, 'label' => 'Teruskan ke Petugas', 'position_x' => 1040, 'position_y' => 960,
+            // Terjawab bukan berarti selesai.
+            //
+            // Satu pertanyaan hampir tidak pernah berdiri sendiri: yang
+            // bertanya berapa lama izin terbit biasanya bertanya biayanya
+            // sesudah itu. Mengembalikannya ke menu utama setelah satu jawaban
+            // memaksanya menempuh 4 → tulis lagi untuk pertanyaan kedua, dan
+            // itulah yang membuat sebuah percakapan terasa seperti formulir.
+            ['key' => 'pertanyaan_lagi', 'type' => BotNodes::INPUT, 'label' => 'Ada Pertanyaan Lagi', 'position_x' => 1040, 'position_y' => 1200,
                 'config' => [
-                    'action' => 'create_complaint',
-                    'category_slug' => 'pertanyaan',
-                    'notify' => true,
-                    'success_message' => "Pertanyaan Anda tercatat dengan nomor *{ticket}*.\n\nPetugas akan menjawabnya. Simpan nomor itu untuk memeriksa perkembangannya melalui menu Cek Aduan.",
-                    'failure_message' => 'Maaf, pertanyaan belum dapat diteruskan. Silakan coba beberapa saat lagi.',
+                    'text' => "Ada pertanyaan lagi? Silakan tulis.\n\nBalas *0* untuk kembali ke menu utama.",
+                    'input' => 'text',
+                    'store_as' => 'question',
+                    'min_length' => 8,
+                    // Jalan keluarnya disebutkan pada teks di atas, jadi ia
+                    // harus benar-benar ada: nol keluar lewat sambungan "back".
+                    'back_on' => '0',
+                    'invalid_message' => 'Pertanyaannya terlalu singkat. Mohon tuliskan sedikit lebih lengkap, atau balas *0* untuk kembali ke menu utama.',
+                    'on_invalid' => 'repeat',
+                ]],
+
+            // Ditanyakan sebelum diteruskan, supaya pertanyaannya sampai ke
+            // orang yang memang mengurusnya.
+            //
+            // Tanpa langkah ini setiap pertanyaan masuk ke kategori
+            // "Pertanyaan", sehingga hanya petugas yang memegang kategori itu
+            // yang dikabari — pertanyaan tentang irigasi pun tidak pernah
+            // sampai ke petugas irigasi. Pilihannya diambil dari tabel
+            // kategori, jadi kategori baru langsung muncul di sini.
+            ['key' => 'topik_pertanyaan', 'type' => BotNodes::MENU, 'label' => 'Topik Pertanyaan', 'position_x' => 780, 'position_y' => 1080,
+                'config' => [
+                    'text' => "Agar sampai ke orang yang tepat, termasuk bidang apa pertanyaan ini?",
+                    'options_from' => 'complaint_categories',
+                    'include_back' => true,
+                    'back_label' => 'Batal',
+                    'invalid_message' => 'Pilihan tidak dikenali. Balas dengan angka yang tersedia.',
+                    'on_invalid' => 'repeat',
+                ]],
+
+            // Not found is not a dead end: warga diberi nomor yang dapat
+            // ditanyainya langsung, bukan tiket dan ajakan menunggu.
+            //
+            // Untuk pertanyaan — bukan laporan — menunggu adalah jawaban yang
+            // buruk: yang dicari orang biasanya satu keterangan yang selesai
+            // dalam semenit bila ditanyakan kepada orangnya.
+            //
+            // Nomornya diambil dari bidang yang dipilih di atas, jadi bidang
+            // baru cukup diisi nomornya di panel tanpa menyentuh alur ini.
+            ['key' => 'teruskan_pertanyaan', 'type' => BotNodes::ACTION, 'label' => 'Beri Nomor Bidang', 'position_x' => 1040, 'position_y' => 960,
+                'config' => [
+                    'action' => 'share_contact',
+                    // Tanpa category_slug, ComplaintFiler memakai kategori yang
+                    // dipilih pada node topik_pertanyaan di atas.
+                    // Tidak menyebut "diteruskan ke petugas" di sini, dan itu
+                    // disengaja: pada cabang ini grup memang tidak dikabari.
+                    // Menjanjikan balasan yang tidak akan datang jauh lebih
+                    // buruk daripada tidak menjanjikan apa-apa.
+                    'success_message' => "Silakan hubungi nomor ini untuk melanjutkan:\n\n{contact}\n\nPertanyaan Anda juga sudah tercatat dengan nomor *{ticket}*.",
+                    // Dipakai bila bidang itu belum diisi nomornya di panel.
+                    // Isinya sama persis, kecuali tidak menyebut nomor yang
+                    // memang tidak ada: kolom yang belum diisi tidak boleh
+                    // berakhir sebagai warga yang tidak diberi apa-apa.
+                    'fallback_message' => "Pertanyaan Anda sudah tercatat dengan nomor *{ticket}* dan diteruskan kepada petugas {category}.\n\nPetugas akan menjawabnya melalui percakapan ini.",
+                    'failure_message' => 'Maaf, pertanyaan belum dapat dicatat. Silakan coba beberapa saat lagi.',
                 ]],
 
             ['key' => 'selesai', 'type' => BotNodes::END, 'label' => 'Selesai', 'position_x' => 1560, 'position_y' => 300,
@@ -274,11 +355,13 @@ class BotFlowSeeder extends Seeder
             ['from_node' => 'menu_informasi', 'to_node' => 'daftar_berita', 'condition' => '1'],
             ['from_node' => 'menu_informasi', 'to_node' => 'daftar_layanan', 'condition' => '2'],
             ['from_node' => 'menu_informasi', 'to_node' => 'daftar_dokumen', 'condition' => '3'],
+            ['from_node' => 'menu_informasi', 'to_node' => 'daftar_jenis_pengaduan', 'condition' => '4'],
             ['from_node' => 'menu_informasi', 'to_node' => 'menu_utama', 'condition' => 'back'],
 
             ['from_node' => 'daftar_berita', 'to_node' => 'menu_utama', 'condition' => 'valid'],
             ['from_node' => 'daftar_layanan', 'to_node' => 'menu_utama', 'condition' => 'valid'],
             ['from_node' => 'daftar_dokumen', 'to_node' => 'menu_utama', 'condition' => 'valid'],
+            ['from_node' => 'daftar_jenis_pengaduan', 'to_node' => 'menu_utama', 'condition' => 'valid'],
 
             // Finished asking, or the limit was reached — either way, done.
             ['from_node' => 'tanya_ai', 'to_node' => 'selesai', 'condition' => 'valid'],
@@ -294,9 +377,20 @@ class BotFlowSeeder extends Seeder
 
             ['from_node' => 'minta_pertanyaan', 'to_node' => 'jawab_pertanyaan', 'condition' => 'valid'],
             ['from_node' => 'minta_pertanyaan', 'to_node' => 'menu_utama', 'condition' => 'exhausted'],
-            // Answered from the FAQ, or handed to a person — never a dead end.
-            ['from_node' => 'jawab_pertanyaan', 'to_node' => 'selesai', 'condition' => 'valid'],
-            ['from_node' => 'jawab_pertanyaan', 'to_node' => 'teruskan_pertanyaan', 'condition' => 'invalid'],
+            // Terjawab → ditawari bertanya lagi; tidak terjawab → diserahkan
+            // kepada orang. Tidak pernah buntu, dan tidak pernah memaksa
+            // mengulang dari menu hanya untuk satu pertanyaan susulan.
+            ['from_node' => 'jawab_pertanyaan', 'to_node' => 'pertanyaan_lagi', 'condition' => 'valid'],
+            ['from_node' => 'jawab_pertanyaan', 'to_node' => 'topik_pertanyaan', 'condition' => 'invalid'],
+
+            ['from_node' => 'pertanyaan_lagi', 'to_node' => 'jawab_pertanyaan', 'condition' => 'valid', 'label' => 'Pertanyaan berikutnya'],
+            ['from_node' => 'pertanyaan_lagi', 'to_node' => 'menu_utama', 'condition' => 'back', 'label' => 'Balas 0'],
+            ['from_node' => 'pertanyaan_lagi', 'to_node' => 'menu_utama', 'condition' => 'exhausted'],
+
+            // Nol dari dalam percakapan AI juga kembali ke menu utama.
+            ['from_node' => 'tanya_ai', 'to_node' => 'menu_utama', 'condition' => 'back', 'label' => 'Balas 0'],
+            ['from_node' => 'topik_pertanyaan', 'to_node' => 'teruskan_pertanyaan', 'condition' => 'category', 'label' => 'Bidang dipilih'],
+            ['from_node' => 'topik_pertanyaan', 'to_node' => 'menu_utama', 'condition' => 'back', 'label' => 'Batal'],
             ['from_node' => 'teruskan_pertanyaan', 'to_node' => 'selesai', 'condition' => 'valid'],
             ['from_node' => 'teruskan_pertanyaan', 'to_node' => 'menu_utama', 'condition' => 'invalid'],
         ];
@@ -314,6 +408,12 @@ class BotFlowSeeder extends Seeder
             ['name' => 'Dokumen', 'slug' => 'dokumen', 'source' => 'documents', 'limit' => 8,
                 'list_template' => '{index}. {title}',
                 'detail_template' => "*{title}*\n\nUnduh: {url}"],
+            // Tanpa {url}: jenis pengaduan tidak punya halaman publik sendiri,
+            // dan penanda yang selalu kosong hanya menyisakan baris menggantung
+            // di akhir pesan.
+            ['name' => 'Jenis Pengaduan', 'slug' => 'jenis-pengaduan', 'source' => 'complaint_categories', 'limit' => 12,
+                'list_template' => '{index}. {title}',
+                'detail_template' => "*{title}*\n\n{excerpt}"],
             // Searched rather than listed: this is what answers a question.
             ['name' => 'Tanya Jawab', 'slug' => 'faq', 'source' => 'faqs', 'limit' => 10,
                 'list_template' => '{index}. {title}',

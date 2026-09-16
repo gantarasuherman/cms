@@ -8,6 +8,7 @@ use App\Models\ComplaintAttachment;
 use App\Models\ComplaintCategory;
 use App\Services\Audit\AuditLogger;
 use App\Services\Bot\Actions\ReporterReplier;
+use App\Services\Complaints\ComplaintStatistics;
 use App\Services\Complaints\LocationClusters;
 use App\Services\Media\MediaService;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -29,17 +31,27 @@ class ComplaintController extends Controller
     ) {
     }
 
-    public function index(): View
+    public function index(Request $request, ComplaintStatistics $statistics): View
     {
         $this->authorize('viewAny', Complaint::class);
+
+        $period = array_key_exists($request->query('periode'), ComplaintStatistics::PERIODS)
+            ? $request->query('periode')
+            : '30';
+
+        // "Sejak awal" tidak punya batas bawah; sisanya dihitung mundur dari
+        // hari ini. Batas atasnya selalu sekarang — sebuah layar yang
+        // menghitung sampai tengah malam nanti akan menampilkan angka yang
+        // belum terjadi.
+        $from = $period === 'all' ? null : now()->subDays((int) $period)->startOfDay();
 
         return view('admin.complaints.index', [
             'categories' => ComplaintCategory::active()->get(),
             'statuses' => Complaint::STATUSES,
-            'counts' => Complaint::query()
-                ->selectRaw('status, COUNT(*) as total')
-                ->groupBy('status')
-                ->pluck('total', 'status'),
+            'periods' => ComplaintStatistics::PERIODS,
+            'period' => $period,
+            'from' => $from,
+            'stats' => $statistics->between($from, now()),
         ]);
     }
 
@@ -54,21 +66,84 @@ class ComplaintController extends Controller
     {
         $this->authorize('viewAny', Complaint::class);
 
-        $radius = (int) $request->integer('radius', LocationClusters::DEFAULT_RADIUS);
-        $radius = max(50, min(2000, $radius));
+        // Radius tidak lagi menjadi saringan di layar.
+        //
+        // Pengelompokan di peta kini dikerjakan Leaflet, yang mengelompokkan
+        // menurut jarak di layar dan membuka sendiri saat diperbesar — tidak
+        // ada angka meter yang perlu ditebak-tebak orang. Radius tetap dipakai
+        // untuk analisis "titik berulang" di bawah peta, dengan nilai bawaan,
+        // karena itu pertanyaan tentang jarak di lapangan dan bukan tentang
+        // tingkat perbesaran.
+        $radius = LocationClusters::DEFAULT_RADIUS;
+
+        // Rentang tanggal, untuk melihat penumpukan pada satu musim atau satu
+        // bulan anggaran. Tanggal yang tidak terbaca diabaikan, bukan membuat
+        // halaman gagal: sebuah saringan yang salah ketik tidak boleh menutup
+        // seluruh peta.
+        $since = $this->date($request->query('dari'));
+        $until = $this->date($request->query('sampai'))?->endOfDay();
 
         $complaints = Complaint::query()
-            ->with('category')
+            // Bukti ikut dimuat di depan: tanpa ini setiap titik pada peta
+            // memicu kuerinya sendiri, dan sebuah kabupaten dengan seribu
+            // laporan menjadi seribu kueri untuk satu halaman.
+            ->with(['category', 'evidence'])
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('kategori'), fn ($q) => $q->where('complaint_category_id', $request->integer('kategori')))
+            ->when($since, fn ($q) => $q->where('created_at', '>=', $since))
+            ->when($until, fn ($q) => $q->where('created_at', '<=', $until))
             ->get();
 
         $found = $clusters->build($complaints, $radius);
 
+        $categories = ComplaintCategory::active()->get();
+
+        // Ikon dikirim sebagai isi SVG-nya, dari bank ikon yang sama dengan
+        // yang dipakai seluruh panel — supaya pin di peta dan lencana di
+        // legenda tidak pernah menggambar dua bentuk berbeda untuk satu jenis.
+        $icons = app(\App\Services\Icons\IconRepository::class);
+
         return view('admin.complaints.map', [
             'clusters' => $found,
+
+            // Satu titik per pengaduan. Pengelompokannya urusan Leaflet, yang
+            // membukanya kembali saat peta diperbesar — sesuatu yang tidak
+            // dapat dilakukan pengelompokan yang sudah jadi dari server.
+            'points' => $complaints->map(fn (Complaint $c) => [
+                'lat' => (float) $c->latitude,
+                'lng' => (float) $c->longitude,
+                'ticket' => $c->ticket,
+                'category' => $c->category?->name ?: 'Tanpa kategori',
+                // Ikon ikut dikirim: warna saja tidak cukup membedakan lebih
+                // dari empat jenis, bahkan bagi mata yang membedakan warna.
+                'icon' => $c->category?->icon ? $icons->body($c->category->icon) : null,
+                'color' => $c->category?->pinColor() ?: ComplaintCategory::PIN_FALLBACK,
+                'status' => $c->statusLabel(),
+                'date' => $c->created_at->translatedFormat('d M Y'),
+                'url' => route('admin.complaints.show', $c),
+
+                // Uraian dipotong: popup peta untuk memutuskan apakah titik ini
+                // yang dicari, bukan untuk membaca laporannya sampai habis —
+                // itu tugas halaman rinciannya.
+                'description' => Str::limit((string) $c->description, 140),
+
+                // Foto pertama saja, lewat rute bergerbang izin yang sama
+                // dengan layar rincian. Ini foto rumah dan pekarangan orang;
+                // ia tidak pernah disajikan dari URL disk publik.
+                'photo' => $c->evidence->first()
+                    ? route('admin.complaints.attachment', $c->evidence->first())
+                    : null,
+                'photos' => $c->evidence->count(),
+            ])->values(),
+
+            'legend' => $categories->map(fn (ComplaintCategory $c) => [
+                'name' => $c->name,
+                'color' => $c->pinColor(),
+                'icon' => $c->icon,
+            ])->values(),
+
             // Handed to the map as data rather than drawn server-side: the
             // clustering is the analysis, and the browser only renders it.
             'markers' => $found->map(fn ($cluster) => [
@@ -88,9 +163,46 @@ class ComplaintController extends Controller
             'radius' => $radius,
             'located' => $complaints->count(),
             'total' => Complaint::count(),
-            'categories' => ComplaintCategory::active()->get(),
+
+            // Dihitung dari titik yang sedang ditampilkan, bukan dari seluruh
+            // basis data: kartunya berdiri di antara kartu-kartu lain yang
+            // semuanya berbicara tentang peta yang sedang dilihat, dan satu
+            // angka yang diam-diam mengabaikan saringan akan membuat keempat
+            // kartu lainnya ikut tampak tidak dapat dipercaya.
+            'redirected' => $complaints->where('status', 'diteruskan')->count(),
+            'categories' => $categories,
             'statuses' => Complaint::STATUSES,
+            'since' => $since,
+            'until' => $until,
+
+            // Null bila batasnya belum pernah diambil. Peta tetap bekerja
+            // tanpanya: sebuah layar yang menolak tampil karena satu berkas
+            // pelengkap belum diunduh tidak menolong siapa pun.
+            'boundary' => Storage::disk('public')->exists(config('complaints.boundary_path'))
+                ? Storage::disk('public')->url(config('complaints.boundary_path'))
+                : null,
         ]);
+    }
+
+    /**
+     * Satu tanggal dari saringan, atau null bila tidak terbaca.
+     *
+     * Sengaja memaafkan: peta yang menolak tampil karena satu huruf salah di
+     * kotak tanggal lebih merepotkan daripada peta yang mengabaikan saringan
+     * yang tidak dimengertinya — dan layarnya tetap menyebutkan rentang yang
+     * benar-benar dipakai.
+     */
+    private function date(?string $value): ?\Illuminate\Support\Carbon
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Carbon::createFromFormat('Y-m-d', $value)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public function data(Request $request): JsonResponse

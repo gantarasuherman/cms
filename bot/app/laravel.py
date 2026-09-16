@@ -19,7 +19,7 @@ class Laravel:
         self.base = f"{settings.laravel_url}/api/bot"
         self.headers = {"X-Bot-Token": settings.internal_token}
 
-    def config(self) -> dict:
+    def config(self) -> dict | None:
         """Credentials as the admin panel holds them.
 
         Fetched rather than read from this process's own environment, so a key
@@ -28,9 +28,18 @@ class Laravel:
         """
         try:
             return request_json(f"{self.base}/config", headers=self.headers)
-        except HttpError as exc:
-            log.warning("gagal mengambil konfigurasi (%s); memakai environment", exc.status)
-            return {}
+        except (HttpError, OSError) as exc:
+            log.warning("gagal mengambil konfigurasi (%s); memakai environment", exc)
+
+            # None, bukan {}: keduanya berarti hal yang sangat berbeda.
+            #
+            # {} berarti Laravel menjawab dan memang belum ada saluran yang
+            # dikonfigurasi — pemasangan baru, tidak ada yang perlu ditunggu.
+            # None berarti Laravel tidak dapat ditanyai sama sekali, dan itu
+            # hampir selalu sementara: bot biasanya siap lebih dulu daripada
+            # nginx. Pemanggilnya perlu membedakan keduanya agar tidak berjalan
+            # selamanya tanpa kredensial hanya karena kalah cepat sedetik.
+            return None
 
     def inbound(self, message: dict) -> list[dict]:
         """Hands one message over and returns the replies to send."""

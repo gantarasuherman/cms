@@ -76,7 +76,18 @@ def drain_outbox(settings: Settings, stop: threading.Event) -> None:
                 continue
 
             try:
-                transport.send(message["destination"], message.get("body", ""), message.get("media_path"))
+                # Template hanya dikenal WhatsApp; Telegram tidak punya
+                # padanannya dan tidak membutuhkannya — ia tidak mengenal
+                # jendela 24 jam sama sekali.
+                if message.get("template") and hasattr(transport, "key") and transport.key == "whatsapp":
+                    transport.send(
+                        message["destination"],
+                        message.get("body", ""),
+                        message.get("media_path"),
+                        message.get("template"),
+                    )
+                else:
+                    transport.send(message["destination"], message.get("body", ""), message.get("media_path"))
                 laravel.report(message["id"], "sent")
             except Exception as exc:  # noqa: BLE001
                 # Reported as failed so Laravel can retry with its own widening

@@ -3,6 +3,7 @@
 namespace App\Services\Bot;
 
 use App\Models\Bot\BotDataSource;
+use App\Models\ComplaintCategory;
 use App\Models\Page;
 use App\Services\Public\DocumentReader;
 use App\Services\Public\FaqReader;
@@ -23,6 +24,16 @@ use Illuminate\Support\Str;
  */
 class ContentLister
 {
+    /**
+     * Bagian terkecil dari kata yang ditanyakan yang harus benar-benar cocok
+     * sebelum sesuatu dianggap sebagai jawaban.
+     *
+     * Sepertiga: cukup longgar untuk kalimat bertele-tele ("saya mau tanya
+     * berapa lama…"), cukup ketat untuk menolak pengaduan panjang yang hanya
+     * berbagi satu dua kata umum dengan sebuah entri FAQ.
+     */
+    private const RELEVANCE_FLOOR = 1 / 3;
+
     public function __construct(
         private readonly NewsReader $news,
         private readonly ServiceReader $services,
@@ -71,6 +82,27 @@ class ContentLister
                 'excerpt' => Str::limit(strip_tags((string) ($item->excerpt ?: $item->content)), 300),
                 'url' => route('public.pages.show', $item->slug),
             ]),
+            // Jenis pengaduan sebagai bacaan, bukan sebagai pilihan.
+            //
+            // Node menu sudah bisa menawarkannya lewat `options_from` untuk
+            // dipilih; sumber data ini untuk keperluan lain — menjawab "jenis
+            // pengaduan apa saja yang dilayani, dan apa yang perlu disiapkan"
+            // tanpa memaksa orang masuk ke alur pengaduan lebih dulu.
+            'complaint_categories' => ComplaintCategory::active()->limit($limit)->get()
+                ->map(fn (ComplaintCategory $item) => [
+                    'title' => $item->name,
+                    'date' => '',
+                    'excerpt' => trim(implode(' ', array_filter([
+                        $item->description,
+                        match (true) {
+                            $item->requires_photo && $item->requires_location => 'Siapkan foto dan titik lokasi.',
+                            $item->requires_photo => 'Siapkan foto.',
+                            $item->requires_location => 'Siapkan titik lokasi.',
+                            default => 'Cukup uraian, tanpa foto.',
+                        },
+                    ]))),
+                    'url' => '',
+                ]),
             default => collect(),
         };
 
@@ -102,7 +134,7 @@ class ContentLister
 
         // A wider net than the list shows: an answer that exists must be found
         // even when it would sit below the display limit.
-        return collect($this->items($source, 50))
+        $scored = collect($this->items($source, 50))
             ->map(function (array $item) use ($words) {
                 $haystack = mb_strtolower(($item['title'] ?? '').' '.($item['excerpt'] ?? ''));
                 $item['_score'] = $words->filter(fn (string $word) => str_contains($haystack, $word))->count();
@@ -110,7 +142,42 @@ class ContentLister
                 return $item;
             })
             ->filter(fn (array $item) => $item['_score'] > 0)
-            ->sortByDesc('_score')
+            ->sortByDesc('_score');
+
+        if ($scored->isEmpty()) {
+            return [];
+        }
+
+        // Sebuah jawaban harus cocok dengan sebagian berarti dari yang
+        // ditanyakan, bukan sekadar punya satu kata yang sama.
+        //
+        // Tanpa ambang ini, sebuah pengaduan panjang — "Irigasi manggis lokasi
+        // sudimampir sampai singaraja macet total…" — cocok dengan FAQ tentang
+        // izin mendirikan bangunan hanya karena dua kata umum kebetulan sama,
+        // lalu dijawab dengan kutipan yang tidak ada hubungannya. Yang paling
+        // merugikan bukan jawaban kelirunya: pengaduan itu dianggap sudah
+        // terjawab, sehingga tidak pernah diteruskan kepada petugas.
+        //
+        // "Tidak menemukan apa-apa" adalah jawaban yang berguna di sini — itu
+        // yang mengirim pertanyaan kepada manusia.
+        if ($scored->first()['_score'] / $words->count() < self::RELEVANCE_FLOOR) {
+            return [];
+        }
+
+        // Only the entries that match as well as the best one.
+        //
+        // Without this, "Berapa lama proses izin mendirikan bangunan?" answers
+        // with the entry about processing times — correct — and then pastes two
+        // more that merely happen to contain the word "bangunan" somewhere,
+        // because taking the top three ignores how far behind they scored. A
+        // person asking one question reads that as not being answered at all.
+        //
+        // Ties are kept: entries that match equally well are genuinely
+        // ambiguous, and showing them beats picking one arbitrarily.
+        $best = $scored->first()['_score'];
+
+        return $scored
+            ->filter(fn (array $item) => $item['_score'] === $best)
             ->take($limit)
             ->values()
             ->all();

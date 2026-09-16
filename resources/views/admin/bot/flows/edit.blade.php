@@ -7,6 +7,14 @@
         'actionNames' => $actionNames,
         'retryBehaviours' => $retryBehaviours,
         'dataSources' => $dataSources,
+        // Dari mana sebuah menu mengambil pilihannya. "Ditulis sendiri"
+        // memakai daftar yang diketik di panel; pilihan lainnya membaca tabel,
+        // sehingga menambah jenis pengaduan langsung menambah pilihan di chat
+        // tanpa alurnya perlu disunting lagi.
+        'optionSources' => [
+            '' => 'Ditulis sendiri di bawah',
+            'complaint_categories' => 'Jenis Pengaduan ('.$categoryCount.' aktif)',
+        ],
     ];
 @endphp
 

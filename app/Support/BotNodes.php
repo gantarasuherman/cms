@@ -114,6 +114,7 @@ final class BotNodes
             'lookup_complaint' => 'Cari pengaduan berdasarkan nomor tiket',
             'notify_officers' => 'Beri tahu petugas sesuai kategori',
             'answer_question' => 'Jawab pertanyaan dari sumber data',
+            'share_contact' => 'Catat pertanyaan lalu beri nomor WhatsApp bidangnya',
             'list_my_complaints' => 'Tampilkan pengaduan milik pelapor ini',
         ];
     }
@@ -133,6 +134,7 @@ final class BotNodes
             'lookup_complaint' => 'Cari Pengaduan',
             'notify_officers' => 'Beri Tahu Petugas',
             'answer_question' => 'Jawab Pertanyaan',
+            'share_contact' => 'Beri Nomor Bidang',
             'list_my_complaints' => 'Daftar Aduan Saya',
         ];
     }
@@ -149,6 +151,7 @@ final class BotNodes
             'documents' => 'Dokumen',
             'faqs' => 'FAQ',
             'pages' => 'Halaman',
+            'complaint_categories' => 'Jenis Pengaduan',
         ];
     }
 
@@ -206,8 +209,12 @@ final class BotNodes
             'requirement_from' => ['nullable', 'string', 'in:category'],
             'options_from' => ['nullable', 'string', 'in:complaint_categories'],
             'include_back' => ['nullable', 'boolean'],
+            // Node masukan: balasan persis ini keluar lewat sambungan "back".
+            'back_on' => ['nullable', 'string', 'max:16'],
             'skippable_when_optional' => ['nullable', 'boolean'],
             'notify' => ['nullable', 'boolean'],
+            // Dipakai share_contact ketika bidangnya belum diisi nomor.
+            'fallback_message' => ['nullable', 'string', 'max:2000'],
             'from' => ['nullable', 'string', 'max:64'],
 
             // Collections

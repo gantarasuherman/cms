@@ -186,11 +186,16 @@ Dua hal yang membuat alur contoh tidak perlu di-hard-code:
 
 ```bash
 php artisan migrate
-php artisan db:seed --class=ComplaintCategorySeeder   # Jalan, Irigasi, Lainnya
-php artisan db:seed --class=BotFlowSeeder             # alur utama: 13 node, 21 sambungan
+php artisan db:seed --class=ComplaintCategorySeeder   # Jalan, Irigasi, Lainnya, Pertanyaan, Jembatan, Drainase
+php artisan db:seed --class=BotFlowSeeder             # alur utama: 19 node, 37 sambungan
 ```
 
 Kedua kanal lahir **nonaktif**. Kanal yang menjawab publik begitu di-seed adalah kanal yang belum sempat ditinjau siapa pun.
+
+Langkah menyiapkan Telegram dan WhatsApp dari nol — token, terowongan HTTPS,
+pendaftaran webhook Meta, petugas penerima — ada di
+[README bagian "Menyiapkan chatbot"](../README.md#menyiapkan-chatbot-telegram-dan-whatsapp),
+lengkap dengan tabel gejala dan sebabnya.
 
 ## Mesin percakapan
 
@@ -324,7 +329,10 @@ Beberapa keputusan yang tidak terbaca dari tangkapan layar:
 ## Yang belum dikerjakan
 
 1. Editor alur visual (SVG, drag-and-drop, panel properti per node)
-3. Layanan Python: webhook Meta Cloud API + Telegram, verifikasi tanda tangan
-4. Layar admin: riwayat percakapan, pengaduan (peta + lampiran), penerima notifikasi
-5. Command `/proses` dan `/selesai` dari WhatsApp/grup Telegram
-6. Dasbor statistik
+2. Dasbor statistik
+
+Sudah selesai sejak daftar ini ditulis: layanan Python beserta webhook Meta
+Cloud API dan Telegram dengan verifikasi tanda tangan, layar riwayat percakapan
+dan pengaduan (peta + lampiran), layar petugas penerima (`/admin/bot/recipients`),
+simulator percakapan (`/admin/bot/simulator`), serta command petugas — kini
+termasuk `/info` dan `/bantuan`.

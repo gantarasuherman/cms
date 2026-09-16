@@ -32,9 +32,17 @@ class Settings:
     whatsapp_phone_id: str | None
     whatsapp_verify_token: str | None
     whatsapp_app_secret: str | None
+    whatsapp_app_id: str | None
     whatsapp_version: str
     poll_timeout: int
     outbox_interval: int
+
+    # Alamat HTTPS publik layanan ini, bila memang tetap: domain sendiri,
+    # named tunnel, atau domain statis ngrok. Kosong berarti dicari sendiri
+    # lewat metrics cloudflared — lihat app/tunnel.py.
+    public_url: str | None
+    tunnel_metrics: str | None
+    ngrok_api: str | None
 
     def merged(self, remote: dict) -> "Settings":
         """This process's settings, with whatever the panel supplied on top.
@@ -57,6 +65,7 @@ class Settings:
             whatsapp_phone_id=whatsapp.get("phone_number_id") or self.whatsapp_phone_id,
             whatsapp_verify_token=whatsapp.get("verify_token") or self.whatsapp_verify_token,
             whatsapp_app_secret=whatsapp.get("app_secret") or self.whatsapp_app_secret,
+            whatsapp_app_id=whatsapp.get("app_id") or self.whatsapp_app_id,
         )
 
     @classmethod
@@ -74,7 +83,11 @@ class Settings:
             whatsapp_phone_id=os.environ.get("WHATSAPP_PHONE_NUMBER_ID") or None,
             whatsapp_verify_token=os.environ.get("WHATSAPP_VERIFY_TOKEN") or None,
             whatsapp_app_secret=os.environ.get("WHATSAPP_APP_SECRET") or None,
+            whatsapp_app_id=os.environ.get("WHATSAPP_APP_ID") or None,
             whatsapp_version=os.environ.get("WHATSAPP_GRAPH_VERSION", "v21.0"),
             poll_timeout=int(os.environ.get("BOT_POLL_TIMEOUT", "30")),
             outbox_interval=int(os.environ.get("BOT_OUTBOX_INTERVAL", "5")),
+            public_url=os.environ.get("BOT_PUBLIC_URL") or None,
+            tunnel_metrics=os.environ.get("CLOUDFLARED_METRICS") or None,
+            ngrok_api=os.environ.get("NGROK_API") or None,
         )

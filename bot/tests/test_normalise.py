@@ -14,8 +14,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-os.environ.setdefault("BOT_INTERNAL_TOKEN", "uji")
-os.environ.setdefault("TELEGRAM_BOT_TOKEN", "123:uji")
+# Ditimpa bila kosong, bukan sekadar setdefault.
+#
+# Di dalam container bot, .env aplikasi ikut terbaca dan berisi
+# TELEGRAM_BOT_TOKEN= (kosong) — tokennya hidup di panel admin, terenkripsi,
+# bukan di berkas itu. Bagi setdefault kunci itu sudah "ada", sehingga seluruh
+# tes Telegram gagal justru di satu-satunya tempat tes ini dijalankan.
+os.environ["BOT_INTERNAL_TOKEN"] = os.environ.get("BOT_INTERNAL_TOKEN") or "uji"
+os.environ["TELEGRAM_BOT_TOKEN"] = os.environ.get("TELEGRAM_BOT_TOKEN") or "123:uji"
 
 from app.config import Settings  # noqa: E402
 from app.transports.telegram import Telegram  # noqa: E402

@@ -62,6 +62,9 @@ class OutboxController extends Controller
                 'type' => $row->type,
                 'body' => $row->body,
                 'media_path' => $row->media_path,
+                // Null untuk hampir semua baris; hanya penerusan ke nomor yang
+                // belum pernah menyapa bot yang memerlukannya.
+                'template' => $row->template ? json_decode($row->template, true) : null,
             ])->values(),
         ]);
     }

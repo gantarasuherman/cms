@@ -28,6 +28,11 @@ return [
         'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),
         // Every webhook body is signed; an unsigned request is not from Meta.
         'app_secret' => env('WHATSAPP_APP_SECRET'),
+        // Bukan rahasia — nomor aplikasi yang tertera terbuka di dasbor Meta.
+        // Diperlukan untuk mendaftarkan alamat webhook lewat Graph API, yang
+        // membuat alamat tunnel yang berubah-ubah tidak lagi perlu ditempel
+        // manusia setiap kali stack dinyalakan.
+        'app_id' => env('WHATSAPP_APP_ID'),
         'version' => env('WHATSAPP_GRAPH_VERSION', 'v21.0'),
     ],
 
